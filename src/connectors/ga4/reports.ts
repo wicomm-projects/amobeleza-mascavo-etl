@@ -12,7 +12,8 @@ import type { iGa4Row, tCollapse } from './transform.js'
  *
  * Mascavo (o que o B2C lê): trafego, vendas, users, items, category — colunas já nos nomes do GA4.
  * Amobeleza (Web Analytics, tabelas h_*): trafego, transacoes, navegacao, por_hora — colunas da era Universal
- * Analytics; a equivalência UA → GA4 abaixo é proposta e **precisa ser combinada** (ver a doc).
+ * Analytics. A equivalência UA → GA4 abaixo foi aceita pelo Matheus (AMO-Q5) e é validada na paridade antes de ligar a
+ * produção (ver a doc).
  *
  * Nomes de dimensões e métricas conferidos na doc do schema da API (v1beta) em 18/11/2026. `conversions` foi
  * renomeada para `keyEvents` pelo Google em 2024.
@@ -188,7 +189,7 @@ const mascavoCategory: iReportDefinition = {
 	})
 }
 
-// ---------------------------------------------------------------- Amobeleza (colunas da era UA — equivalência a combinar)
+// ---------------------------------------------------------------- Amobeleza (colunas da era UA — equivalência da AMO-Q5)
 
 /**
  * `bounces` não existe no GA4: rejeição = sessão não engajada, então bounces = sessions − engagedSessions (a mesma conta
@@ -243,7 +244,7 @@ const amobelezaTransacoes: iReportDefinition = {
 	})
 }
 
-/** `segment` era o segmento do UA, que a API do GA4 não tem: fica nulo até combinar. */
+/** `segment` era o segmento do UA, que a API do GA4 não tem: fica nulo (AMO-Q5). O Power BI não lê esta tabela. */
 const amobelezaNavegacao: iReportDefinition = {
 	table: 'sheets_google_drive_navegacao',
 	dimensions: ['date', 'deviceCategory', 'mobileDeviceBranding'],

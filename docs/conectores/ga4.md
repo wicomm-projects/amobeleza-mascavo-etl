@@ -145,11 +145,19 @@ Consequência: `Item_name` ou `Session_source` com emoji (4 bytes) dá erro de g
 
 ## Pendências e dúvidas
 
-**A combinar com a cliente (equivalência UA → GA4 da Amobeleza).** O Web Analytics da Amobeleza lê `trafego`,
-`transacoes`, `por_hora` (e `ev_navegacao`, parada desde 08/09/2025) com colunas do Universal Analytics; o GA4 atual ia
-pelo BigQuery (`analytics_311781135`), que hoje só devolve um dia. A tradução proposta está na tabela acima: `bounces` =
-sessões não engajadas, `pageviews` = `screenPageViews`, `source_medium`/`campaign` da sessão, `segment` nulo. Pelo
-levantamento da WPP, o Power BI **não lê** `sheets_google_drive_navegacao` — confirmar se ela fica.
+**Decidido (AMO-Q5, 18/11/2026): equivalência UA → GA4 da Amobeleza aceita, com validação na paridade antes de ligar a
+produção.** O Web Analytics da Amobeleza lê `trafego`, `transacoes`, `por_hora` (e `ev_navegacao`, parada desde
+08/09/2025) com colunas do Universal Analytics. A troca do UA pelo GA4 já tinha acontecido em 2023/2024, dentro do
+Supermetrics: as tabelas seguiram recebendo dado do GA4 com nome de coluna do UA até 2026. A tradução está na tabela
+acima: `bounces` = sessões não engajadas, `pageviews` = `screenPageViews`, `source_medium`/`campaign` da sessão,
+`segment` nulo.
+
+- O visual do painel não muda.
+- Risco: degrau em rejeições ou visualizações, se a fórmula não bater com a do Supermetrics. A paridade compara um mês
+  que a produção já tem (ex.: agosto/2026), só lendo.
+- `sheets_google_drive_navegacao` não é lida pelo Power BI, mas continua sendo gravada (decisão da AMO-Q5).
+- O GA4 recente ia também pelo BigQuery (`analytics_311781135`), que hoje só devolve um dia. Ele fica fora deste
+  conector.
 
 **Assumidas, a confirmar na paridade:**
 
