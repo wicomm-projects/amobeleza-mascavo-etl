@@ -666,10 +666,7 @@
 								"InputValues": {
 									"vtex.subscription.key.frequency": {
 										"MaximumNumberOfCharacters": 8,
-										"Domain": [
-											"4 month",
-											"1 month"
-										]
+										"Domain": ["4 month", "1 month"]
 									}
 								},
 								"Composition": {}
@@ -681,9 +678,7 @@
 								"InputValues": {
 									"vtex.subscription.key.frequency": {
 										"MaximumNumberOfCharacters": 5,
-										"Domain": [
-											"1 day"
-										]
+										"Domain": ["1 day"]
 									}
 								},
 								"Composition": null
@@ -695,12 +690,7 @@
 								"InputValues": {
 									"vtex.subscription.key.frequency": {
 										"MaximumNumberOfCharacters": 7,
-										"Domain": [
-											"1 week",
-											"2 week",
-											"3 week",
-											"4 week"
-										]
+										"Domain": ["1 week", "2 week", "3 week", "4 week"]
 									}
 								},
 								"Composition": null
@@ -899,10 +889,7 @@
 					"neighborhood": "Barra da Tijuca",
 					"complement": "10",
 					"reference": "apartment",
-					"geoCoordinates": [
-						-43.3373718,
-						-23.0105873
-					]
+					"geoCoordinates": [-43.3373718, -23.0105873]
 				},
 				"logisticsInfo": [
 					{
@@ -961,10 +948,7 @@
 										"neighborhood": "Botafogo",
 										"complement": "4th floor",
 										"reference": null,
-										"geoCoordinates": [
-											-43.18259,
-											-22.94436
-										]
+										"geoCoordinates": [-43.18259, -22.94436]
 									},
 									"dockId": "Take away dock",
 									"friendlyName": "Store Name RJ",
@@ -977,9 +961,7 @@
 								"pickupDistance": 17.473064422607422
 							}
 						],
-						"shipsTo": [
-							"BRA"
-						],
+						"shipsTo": ["BRA"],
 						"deliveryIds": [
 							{
 								"courierId": "136769c",
@@ -1041,10 +1023,7 @@
 						"neighborhood": "Barra da Tijuca",
 						"complement": "10",
 						"reference": "4th floor",
-						"geoCoordinates": [
-							-43.3373718,
-							-23.0105873
-						]
+						"geoCoordinates": [-43.3373718, -23.0105873]
 					}
 				],
 				"contactInformation": [
@@ -1086,9 +1065,7 @@
 				"utmiCampaign": " ",
 				"utmipage": " ",
 				"utmiPart": " ",
-				"marketingTags": [
-					"vtex-subscription"
-				]
+				"marketingTags": ["vtex-subscription"]
 			},
 			"giftRegistryData": {
 				"giftRegistryId": "154",
@@ -1154,12 +1131,7 @@
 							"schema": {
 								"luxstore.subscription.key.frequency": {
 									"MaximumNumberOfCharacters": 7,
-									"Domain": [
-										"1 week",
-										"2 week",
-										"3 week",
-										"4 week"
-									]
+									"Domain": ["1 week", "2 week", "3 week", "4 week"]
 								}
 							}
 						}
