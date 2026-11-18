@@ -28,16 +28,23 @@ const sourceOfJob = (job: iJob): iSource => {
 /** Marcas em que um job roda: todas, se for por marca; nenhuma (undefined), se for global. */
 const brandsOf = (job: iJob): (tBrand | undefined)[] => (job.scope === 'brand' ? [...BRANDS] : [undefined])
 
-/** Tabelas que algum job grava, por banco. É a lista que o schema:pull pode ler na produção. */
-const tablesByDatabase = (): Map<tDatabase, Set<string>> => {
+/** Tabelas que o job grava nesta marca (ou no global). Única forma de ler `job.tables`. */
+const tablesOf = (job: iJob, brand?: tBrand): readonly string[] =>
+	typeof job.tables === 'function' ? job.tables(brand) : job.tables
+
+/**
+ * Tabelas que algum job grava, por banco. É a lista que o schema:pull pode ler na produção: cada banco recebe só as
+ * tabelas que o job grava naquela marca (uma tabela que só existe na Mascavo nunca é pedida ao banco da Amobeleza).
+ */
+const tablesByDatabase = (jobs: readonly iJob[] = allJobs()): Map<tDatabase, Set<string>> => {
 	const map = new Map<tDatabase, Set<string>>()
 
-	for (const job of allJobs()) {
+	for (const job of jobs) {
 		for (const brand of brandsOf(job)) {
 			const database = job.database(brand)
 			const tables = map.get(database) ?? new Set<string>()
 
-			job.tables.forEach(table => tables.add(table))
+			tablesOf(job, brand).forEach(table => tables.add(table))
 			map.set(database, tables)
 		}
 	}
@@ -45,4 +52,4 @@ const tablesByDatabase = (): Map<tDatabase, Set<string>> => {
 	return map
 }
 
-export { SOURCES, allJobs, brandsOf, findJob, findSource, sourceOfJob, tablesByDatabase }
+export { SOURCES, allJobs, brandsOf, findJob, findSource, sourceOfJob, tablesByDatabase, tablesOf }
