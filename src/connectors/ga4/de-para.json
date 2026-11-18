@@ -1,0 +1,4 @@
+{
+	"leiame": "De/Para de canal da Mascavo (sheets_google_drive_trafego e _vendas): origem + campanha do GA4 -> vehicle_channel_no_pay e type. Vazio até o SELECT DISTINCT só de leitura na produção (ver docs/conectores/ga4.md). Os textos de saída precisam ser idênticos aos do histórico: o Power BI se relaciona por eles. Regra com campanha vence regra só com origem. Comparação sem diferença de maiúscula/acento.",
+	"regras": []
+}

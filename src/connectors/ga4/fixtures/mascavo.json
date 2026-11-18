@@ -1,0 +1,194 @@
+{
+	"leiame": "Respostas de exemplo do runReport (formato REST da API de dados do GA4 v1beta, campos da doc pública), uma por tabela da Mascavo. Valores inventados, nenhum dado da cliente. Inclui casos de borda: 'google'/'Google' no mesmo dia (users e items somam) e um item com duas categorias (category fica com a de mais unidades).",
+	"propertyId": "123456789",
+	"dateRange": { "startDate": "2026-11-16", "endDate": "2026-11-18" },
+	"reports": {
+		"sheets_google_drive_trafego": {
+			"dimensionHeaders": [
+				{ "name": "date" },
+				{ "name": "sessionSource" },
+				{ "name": "sessionCampaignName" },
+				{ "name": "platformDeviceCategory" }
+			],
+			"metricHeaders": [{ "name": "eventCount", "type": "TYPE_INTEGER" }],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "google" },
+						{ "value": "(organic)" },
+						{ "value": "web / mobile" }
+					],
+					"metricValues": [{ "value": "1520" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "(direct)" },
+						{ "value": "(direct)" },
+						{ "value": "web / desktop" }
+					],
+					"metricValues": [{ "value": "410" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261117" },
+						{ "value": "google" },
+						{ "value": "campanha_exemplo" },
+						{ "value": "web / mobile" }
+					],
+					"metricValues": [{ "value": "980" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261118" },
+						{ "value": "newsletter" },
+						{ "value": "novidades_exemplo" },
+						{ "value": "web / mobile" }
+					],
+					"metricValues": [{ "value": "233" }]
+				}
+			],
+			"rowCount": 4,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_vendas": {
+			"dimensionHeaders": [
+				{ "name": "date" },
+				{ "name": "source" },
+				{ "name": "campaignName" },
+				{ "name": "platformDeviceCategory" }
+			],
+			"metricHeaders": [
+				{ "name": "purchaseRevenue", "type": "TYPE_CURRENCY" },
+				{ "name": "keyEvents", "type": "TYPE_FLOAT" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "google" },
+						{ "value": "campanha_exemplo" },
+						{ "value": "web / mobile" }
+					],
+					"metricValues": [{ "value": "1234.5678" }, { "value": "7" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261117" },
+						{ "value": "(direct)" },
+						{ "value": "(direct)" },
+						{ "value": "web / desktop" }
+					],
+					"metricValues": [{ "value": "389.9" }, { "value": "2" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261118" },
+						{ "value": "newsletter" },
+						{ "value": "novidades_exemplo" },
+						{ "value": "web / mobile" }
+					],
+					"metricValues": [{ "value": "0" }, { "value": "1" }]
+				}
+			],
+			"rowCount": 3,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_users": {
+			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSource" }],
+			"metricHeaders": [
+				{ "name": "firstTimePurchasers", "type": "TYPE_INTEGER" },
+				{ "name": "newUsers", "type": "TYPE_INTEGER" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [{ "value": "20261116" }, { "value": "google" }],
+					"metricValues": [{ "value": "4" }, { "value": "310" }]
+				},
+				{
+					"dimensionValues": [{ "value": "20261116" }, { "value": "Google" }],
+					"metricValues": [{ "value": "1" }, { "value": "12" }]
+				},
+				{
+					"dimensionValues": [{ "value": "20261117" }, { "value": "(direct)" }],
+					"metricValues": [{ "value": "2" }, { "value": "95" }]
+				}
+			],
+			"rowCount": 3,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_items": {
+			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSource" }, { "name": "itemName" }],
+			"metricHeaders": [
+				{ "name": "itemRevenue", "type": "TYPE_CURRENCY" },
+				{ "name": "itemsPurchased", "type": "TYPE_INTEGER" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "google" },
+						{ "value": "Produto Exemplo A" }
+					],
+					"metricValues": [{ "value": "159.8" }, { "value": "2" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "Google" },
+						{ "value": "Produto Exemplo A" }
+					],
+					"metricValues": [{ "value": "79.9" }, { "value": "1" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261118" },
+						{ "value": "(direct)" },
+						{ "value": "Produto Exemplo B" }
+					],
+					"metricValues": [{ "value": "45.5" }, { "value": "1" }]
+				}
+			],
+			"rowCount": 3,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_category": {
+			"dimensionHeaders": [{ "name": "itemCategory" }, { "name": "itemCategory2" }, { "name": "itemName" }],
+			"metricHeaders": [{ "name": "itemsPurchased", "type": "TYPE_INTEGER" }],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "Categoria Exemplo" },
+						{ "value": "Subcategoria Exemplo" },
+						{ "value": "Produto Exemplo A" }
+					],
+					"metricValues": [{ "value": "120" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "Categoria Exemplo" },
+						{ "value": "Outra Subcategoria" },
+						{ "value": "Produto Exemplo B" }
+					],
+					"metricValues": [{ "value": "40" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "Categoria Antiga" },
+						{ "value": "(not set)" },
+						{ "value": "Produto Exemplo A" }
+					],
+					"metricValues": [{ "value": "3" }]
+				}
+			],
+			"rowCount": 3,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		}
+	}
+}
