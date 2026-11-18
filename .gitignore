@@ -1,0 +1,31 @@
+# Dependências e build
+node_modules/
+dist/
+coverage/
+
+# Segredos: nunca versionar
+.env
+.env.*
+!.env.example
+credentials/
+*service-account*.json
+*-credentials.json
+*.pem
+*.key
+
+# Documentos do cliente (trazem senhas e hosts em texto aberto): ficam fora do repo
+*.pdf
+*.xlsx
+*.xls
+*.docx
+*.pbix
+docs-cliente/
+
+# Saídas de dry-run e paridade (podem ter dado pessoal)
+reports/
+
+# Logs e lixo do sistema
+logs/
+*.log
+.DS_Store
+Thumbs.db

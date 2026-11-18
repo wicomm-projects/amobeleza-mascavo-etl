@@ -1,0 +1,42 @@
+# MySQL LOCAL de desenvolvimento. Nada aqui encosta no banco da cliente.
+# - Porta só em 127.0.0.1:3307 (não expõe na rede).
+# - Cria mascavo_etl, amobeleza_etl e etl_local_meta.marker (o marcador que o writer exige antes de gravar).
+# - Versão 8.4 (LTS). Quando o usuário de leitura chegar, conferir a versão da produção (SELECT VERSION()) e alinhar aqui.
+services:
+    mysql:
+        image: mysql:8.4
+        container_name: amo-etl-mysql
+        # Hostname fixo: o writer confere @@hostname antes de gravar (src/core/db/target-guard.ts).
+        hostname: amo-etl-mysql-local
+        restart: unless-stopped
+        ports:
+            - '127.0.0.1:3307:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: ${LOCAL_MYSQL_ROOT_PASSWORD:-local-root-dev}
+            MYSQL_USER: etl_local # fixo: db/init/00-local.sql dá os GRANTs para este nome
+            MYSQL_PASSWORD: ${TARGET_DB_PASSWORD:-etl_local_dev}
+            TZ: UTC
+        command:
+            - --default-time-zone=+00:00
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+        volumes:
+            - ./db/init:/docker-entrypoint-initdb.d:ro
+            - amo-etl-mysql-data:/var/lib/mysql
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'mysqladmin',
+                    'ping',
+                    '-h',
+                    '127.0.0.1',
+                    '-uroot',
+                    '-p${LOCAL_MYSQL_ROOT_PASSWORD:-local-root-dev}'
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+volumes:
+    amo-etl-mysql-data:
