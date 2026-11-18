@@ -8,6 +8,7 @@ import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunOptions, iRunSummary } from '../../core/jobs/types.js'
 
 import { createAnymarketClient, formatApiDate, listOrderPages } from './client.js'
+import { maskPersonalData } from './personal-data.js'
 import { orderSchema, ordersPageSchema, type tAnymarketOrder, type tOrdersPage } from './schemas.js'
 import { ALL_TABLES, ANYMARKET_TABLES, ORDER_KEY_COLUMN } from './tables.js'
 import { type iOrderRows, toOrderRows } from './transform.js'
@@ -168,7 +169,11 @@ const writeBatch = async (writer: iWriter, batch: iParsedOrder[]): Promise<iWrit
 				ANYMARKET_TABLES.shipping,
 				ORDER_KEY_COLUMN,
 				ids,
-				collect(rows => rows.shipping)
+				// Endereço de rua e quem recebe: mascarados enquanto o destino é o local (personal-data.ts).
+				maskPersonalData(
+					ANYMARKET_TABLES.shipping,
+					collect(rows => rows.shipping)
+				)
 			)
 			await tx.replaceByKeys(
 				ANYMARKET_TABLES.tracking,
@@ -180,7 +185,11 @@ const writeBatch = async (writer: iWriter, batch: iParsedOrder[]): Promise<iWrit
 				ANYMARKET_TABLES.buyer,
 				ORDER_KEY_COLUMN,
 				ids,
-				collect(rows => rows.buyer)
+				// Nome, e-mail e documento do comprador: mascarados enquanto o destino é o local (personal-data.ts).
+				maskPersonalData(
+					ANYMARKET_TABLES.buyer,
+					collect(rows => rows.buyer)
+				)
 			)
 		})
 

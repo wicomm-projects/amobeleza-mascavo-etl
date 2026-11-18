@@ -28,8 +28,10 @@ npm run etl -- run anymarket-orders --from 2026-10-05 --to 2026-11-18 --dry-run 
 npm run etl -- run anymarket-orders --fixture src/connectors/anymarket/fixtures/orders-page.json   # grava o exemplo
 ```
 
-**Com dado real, no computador do dev, só `--dry-run`** (decisão AMO-Q4, pendência 7): sem `--dry-run`, a carga com o
-token grava comprador e endereço reais no MySQL local. A primeira carga que grava roda na VPS.
+**Com dado real, no computador do dev, só `--dry-run`** (decisão AMO-Q4, pendência 7). A primeira carga que grava roda na
+VPS. Trava no código: enquanto o destino é o local, nome, e-mail e documento do comprador e endereço, rua, número e
+quem recebe a entrega são gravados como `[mascarado]` (`src/connectors/anymarket/personal-data.ts`, mesma regra da
+VTEX). Cidade, UF, país, bairro e CEP ficam.
 
 Agenda: a cada 30 min (`*/30 * * * *`, fuso de São Paulo), quando o agendador for ligado.
 
@@ -187,15 +189,14 @@ aceito: a autenticação vem antes da validação dos filtros.
    `--dry-run` grava comprador e endereço reais no MySQL local; o `CLAUDE.md` diz "nada de dado de produção no Docker
    local", e o ADR das travas diz que as cargas reais gravam no Docker local. Decisão: no computador do dev, com dado
    real, **só `--dry-run`**; a primeira carga que grava roda na VPS. Alternativa aceita: Docker local com
-   `anymarket_order_buyer` e `anymarket_order_shipping` esvaziadas logo depois da conferência. Regra de procedimento,
-   sem trava no código (o código não distingue o computador do dev da VPS).
+   `anymarket_order_buyer` e `anymarket_order_shipping` esvaziadas logo depois da conferência. **Atualização (18/11):**
+   além da regra, o código mascara o dado pessoal ao gravar (`personal-data.ts`, pedido do Matheus), como a VTEX. A
+   máscara sai só no PR de liberação da produção, junto com a da VTEX.
 8. **429 e o núcleo.** O transporte lê `Retry-After`, que o AnyMarket não manda. O conector contorna com a espera de
    60 s; um PR no núcleo pode ensinar o transporte a ler `ratelimit-reset` (fora do escopo desta fase).
 9. **Paridade** ainda não implementada (precisa do usuário só leitura no banco da cliente).
-10. **`err.sql` no log (núcleo).** O mysql2 guarda o SQL montado em `err.sql`, o serializador do pino copia toda
-    propriedade do erro e o `redact` do `src/config/logger.ts` não cobre `sql`: uma falha de banco no meio do lote
-    levaria dado pessoal para o log, nesta fonte e na VTEX. O conector já relança só o código; o conserto definitivo é
-    um PR no núcleo (`err.sql`, `*.sql`, `err.cause.sql` no redact, ou serializador de `err` sem `sql`).
+10. **`err.sql` no log (núcleo) — resolvido no PR #7.** O writer sobe só `DatabaseError` (código e coluna) e o logger
+    sanitiza a cadeia de `cause`. O conector continua relançando só o código, como segunda camada.
 11. **Offset em fatia antiga.** Paginação por offset sobre um conjunto que muda: se um pedido de uma fatia passada é
     atualizado durante a leitura, ele sai da fatia e o pedido seguinte pode pular de página. Na janela de 24 h a
     sobreposição recupera; na carga retroativa, não. Rodar a carga retroativa duas vezes (é idempotente) ou fora do
