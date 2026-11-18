@@ -1,0 +1,142 @@
+{
+	"leiame": "Respostas de exemplo do runReport (formato REST da API de dados do GA4 v1beta, campos da doc pública), uma por tabela da Amobeleza. Valores inventados, nenhum dado da cliente. Rode com --from 2026-11-16 --to 2026-11-18 ou deixe a janela da fixture.",
+	"propertyId": "123456789",
+	"dateRange": { "startDate": "2026-11-16", "endDate": "2026-11-18" },
+	"reports": {
+		"sheets_google_drive_trafego": {
+			"dimensionHeaders": [
+				{ "name": "date" },
+				{ "name": "sessionSourceMedium" },
+				{ "name": "sessionCampaignName" },
+				{ "name": "deviceCategory" },
+				{ "name": "mobileDeviceBranding" }
+			],
+			"metricHeaders": [
+				{ "name": "sessions", "type": "TYPE_INTEGER" },
+				{ "name": "engagedSessions", "type": "TYPE_INTEGER" },
+				{ "name": "newUsers", "type": "TYPE_INTEGER" },
+				{ "name": "screenPageViews", "type": "TYPE_INTEGER" },
+				{ "name": "purchaseRevenue", "type": "TYPE_CURRENCY" },
+				{ "name": "transactions", "type": "TYPE_INTEGER" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "google / organic" },
+						{ "value": "(organic)" },
+						{ "value": "mobile" },
+						{ "value": "Apple" }
+					],
+					"metricValues": [
+						{ "value": "820" },
+						{ "value": "560" },
+						{ "value": "300" },
+						{ "value": "4100" },
+						{ "value": "2399.7" },
+						{ "value": "9" }
+					]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261117" },
+						{ "value": "(direct) / (none)" },
+						{ "value": "(direct)" },
+						{ "value": "desktop" },
+						{ "value": "(not set)" }
+					],
+					"metricValues": [
+						{ "value": "210" },
+						{ "value": "150" },
+						{ "value": "40" },
+						{ "value": "1300" },
+						{ "value": "0" },
+						{ "value": "0" }
+					]
+				}
+			],
+			"rowCount": 2,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_transacoes": {
+			"dimensionHeaders": [
+				{ "name": "date" },
+				{ "name": "transactionId" },
+				{ "name": "sessionSourceMedium" },
+				{ "name": "sessionCampaignName" },
+				{ "name": "deviceCategory" },
+				{ "name": "mobileDeviceBranding" }
+			],
+			"metricHeaders": [
+				{ "name": "transactions", "type": "TYPE_INTEGER" },
+				{ "name": "purchaseRevenue", "type": "TYPE_CURRENCY" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [
+						{ "value": "20261116" },
+						{ "value": "1000000000001-01" },
+						{ "value": "google / cpc" },
+						{ "value": "campanha_exemplo" },
+						{ "value": "mobile" },
+						{ "value": "Samsung" }
+					],
+					"metricValues": [{ "value": "1" }, { "value": "189.9" }]
+				},
+				{
+					"dimensionValues": [
+						{ "value": "20261118" },
+						{ "value": "1000000000002-01" },
+						{ "value": "(direct) / (none)" },
+						{ "value": "(direct)" },
+						{ "value": "desktop" },
+						{ "value": "(not set)" }
+					],
+					"metricValues": [{ "value": "1" }, { "value": "75" }]
+				}
+			],
+			"rowCount": 2,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_navegacao": {
+			"dimensionHeaders": [{ "name": "date" }, { "name": "deviceCategory" }, { "name": "mobileDeviceBranding" }],
+			"metricHeaders": [{ "name": "sessions", "type": "TYPE_INTEGER" }],
+			"rows": [
+				{
+					"dimensionValues": [{ "value": "20261116" }, { "value": "mobile" }, { "value": "Apple" }],
+					"metricValues": [{ "value": "640" }]
+				},
+				{
+					"dimensionValues": [{ "value": "20261117" }, { "value": "desktop" }, { "value": "(not set)" }],
+					"metricValues": [{ "value": "210" }]
+				}
+			],
+			"rowCount": 2,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		},
+		"sheets_google_drive_por_hora": {
+			"dimensionHeaders": [{ "name": "date" }, { "name": "hour" }],
+			"metricHeaders": [
+				{ "name": "purchaseRevenue", "type": "TYPE_CURRENCY" },
+				{ "name": "transactions", "type": "TYPE_INTEGER" },
+				{ "name": "sessions", "type": "TYPE_INTEGER" }
+			],
+			"rows": [
+				{
+					"dimensionValues": [{ "value": "20261118" }, { "value": "09" }],
+					"metricValues": [{ "value": "329.8" }, { "value": "2" }, { "value": "88" }]
+				},
+				{
+					"dimensionValues": [{ "value": "20261118" }, { "value": "10" }],
+					"metricValues": [{ "value": "0" }, { "value": "0" }, { "value": "73" }]
+				}
+			],
+			"rowCount": 2,
+			"metadata": { "currencyCode": "BRL", "timeZone": "America/Sao_Paulo" },
+			"kind": "analyticsData#runReport"
+		}
+	}
+}
