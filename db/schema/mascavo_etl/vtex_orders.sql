@@ -1,0 +1,37 @@
+-- PROVISÓRIO: escrito a partir do dicionário da WPP (docs/contrato/mascavo_etl.md, p. 12–13) até o
+-- schema:pull trazer o DDL real da produção (índices, charset, colação). Só estrutura, sem dado.
+-- Sem PK no dicionário; order_id é a chave lógica (o ETL regrava por order_id).
+CREATE TABLE `vtex_orders` (
+	`order_id` varchar(255) NOT NULL,
+	`order_date` datetime NOT NULL,
+	`total_value` decimal(10,2) NOT NULL,
+	`status` varchar(255) DEFAULT NULL,
+	`status_description` varchar(255) NOT NULL,
+	`market_place_order_id` varchar(255) DEFAULT NULL,
+	`sequence` varchar(255) NOT NULL,
+	`sales_channel` varchar(255) NOT NULL,
+	`affiliate_id` varchar(255) DEFAULT NULL,
+	`origin` varchar(255) NOT NULL,
+	`workflow_in_error_state` tinyint(1) NOT NULL,
+	`workflow_in_retry` tinyint(1) NOT NULL,
+	`shipping_estimated_date` datetime DEFAULT NULL,
+	`shipping_estimated_date_max` datetime DEFAULT NULL,
+	`shipping_estimated_date_min` datetime DEFAULT NULL,
+	`order_is_complete` tinyint(1) NOT NULL,
+	`authorized_date` datetime DEFAULT NULL,
+	`total_items` int NOT NULL,
+	`currency_code` varchar(10) NOT NULL,
+	`hostname` varchar(255) NOT NULL,
+	`last_change` datetime DEFAULT NULL,
+	`is_all_delivered` tinyint(1) DEFAULT NULL,
+	`is_any_delivered` tinyint(1) DEFAULT NULL,
+	`ready_for_handling_date` datetime DEFAULT NULL,
+	`created_at` timestamp NULL DEFAULT NULL,
+	`updated_at` timestamp NULL DEFAULT NULL,
+	KEY `vtex_orders_order_id_index` (`order_id`),
+	KEY `vtex_orders_status_index` (`status`),
+	KEY `vtex_orders_status_description_index` (`status_description`),
+	KEY `vtex_orders_sales_channel_index` (`sales_channel`),
+	KEY `vtex_orders_affiliate_id_index` (`affiliate_id`),
+	KEY `vtex_orders_origin_index` (`origin`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

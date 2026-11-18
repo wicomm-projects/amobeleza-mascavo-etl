@@ -1,0 +1,189 @@
+{
+	"_fonte": "Exemplos públicos da documentação da VTEX (github.com/vtex/openapi-schemas, VTEX - Catalog API.json): resposta 200 de GetProductAndSkuIds, de Get product by ID (GET /api/catalog/pvt/product/{productId}) e de Get category tree (GET /api/catalog_system/pub/category/tree/{levels}). Nenhum dado da cliente.",
+	"productAndSkuIds": {
+		"data": {
+			"1": [
+				1,
+				123456,
+				310118449,
+				310118489,
+				7,
+				2
+			],
+			"2": [
+				3,
+				310118450,
+				310118451,
+				4,
+				8
+			],
+			"3": [
+				5
+			],
+			"4": [
+				310118448
+			],
+			"5": [
+				310118465
+			],
+			"6": [],
+			"7": [
+				310118452
+			],
+			"8": [
+				310118453,
+				310118459,
+				310118463
+			],
+			"9": [
+				310118454,
+				310118455,
+				310118456,
+				310118457,
+				310118458,
+				310118460,
+				310118461,
+				310118462,
+				310118464
+			],
+			"10": [],
+			"11": [],
+			"12": [
+				310118490
+			]
+		},
+		"range": {
+			"total": 12,
+			"from": 1,
+			"to": 20
+		}
+	},
+	"products": [
+		{
+			"Id": 42,
+			"Name": "Zoom Stefan Janoski Canvas RM SB Varsity Red",
+			"DepartmentId": 2000089,
+			"CategoryId": 2000090,
+			"BrandId": 12121219,
+			"LinkId": "stefan-janoski-canvas-varsity-red",
+			"RefId": "sr_1_90",
+			"IsVisible": true,
+			"Description": "The Nike Zoom Stefan Janoski Men's Shoe is made with a premium leather upper for superior durability and a flexible midsole for all-day comfort. A tacky gum rubber outsole delivers outstanding traction.",
+			"DescriptionShort": "The Nike Zoom Stefan Janoski is made with a premium leather.",
+			"ReleaseDate": "2020-01-01T00:00:00",
+			"KeyWords": "Zoom,Stefan,Janoski",
+			"Title": "Zoom Stefan Janoski Canvas RM SB Varsity Re",
+			"IsActive": true,
+			"TaxCode": "",
+			"MetaTagDescription": "The Nike Zoom Stefan Janoski Men's Shoe is made with a premium leather upper for superior durability and a flexible midsole for all-day comfort. A tacky gum rubber outsole delivers outstanding traction.",
+			"SupplierId": 1,
+			"ShowWithoutStock": true,
+			"AdWordsRemarketingCode": "",
+			"LomadeeCampaignCode": "",
+			"Score": 1
+		}
+	],
+	"categoryTree": [
+		{
+			"id": 1,
+			"name": "Alimentação",
+			"hasChildren": true,
+			"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao",
+			"children": [
+				{
+					"id": 6,
+					"name": "Bebedouro",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/bebedouro",
+					"children": [],
+					"Title": "Bebedouro para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 7,
+					"name": "Comedouro",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/comedouro",
+					"children": [],
+					"Title": "Comedouro para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 8,
+					"name": "Biscoitos",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/biscoitos",
+					"children": [],
+					"Title": "Biscoitos para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 9,
+					"name": "Petiscos",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/petiscos",
+					"children": [],
+					"Title": "Petiscos para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 10,
+					"name": "Ração Seca",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/racao-seca",
+					"children": [],
+					"Title": "Ração Seca para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 11,
+					"name": "Ração Úmida",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/alimentacao/racao-umida",
+					"children": [],
+					"Title": "Ração Úmida para Gatos",
+					"MetaTagDescription": ""
+				}
+			],
+			"Title": "Alimentação para Gatos",
+			"MetaTagDescription": ""
+		},
+		{
+			"id": 2,
+			"name": "Brinquedos",
+			"hasChildren": true,
+			"url": "https://lojadobreno.vtexcommercestable.com.br/brinquedos",
+			"children": [
+				{
+					"id": 12,
+					"name": "Bolinhas",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/brinquedos/bolinhas",
+					"children": [],
+					"Title": "Bolinhas para Gatos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 13,
+					"name": "Ratinhos",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/brinquedos/ratinhos",
+					"children": [],
+					"Title": "Ratinhos",
+					"MetaTagDescription": ""
+				},
+				{
+					"id": 19,
+					"name": "Arranhador para gato",
+					"hasChildren": false,
+					"url": "https://lojadobreno.vtexcommercestable.com.br/brinquedos/arranhador-para-gato",
+					"children": [],
+					"Title": "Brinquedo Arranhador para gatos",
+					"MetaTagDescription": "Arranhador gatos é indispensável no lar com felinos. Ideais para afiar as unhas e garantir a diversão"
+				}
+			],
+			"Title": "Brinquedos para Gatos",
+			"MetaTagDescription": ""
+		}
+	]
+}
