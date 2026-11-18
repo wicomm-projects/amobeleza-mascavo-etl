@@ -28,8 +28,8 @@ npm run etl -- run anymarket-orders --from 2026-10-05 --to 2026-11-18 --dry-run 
 npm run etl -- run anymarket-orders --fixture src/connectors/anymarket/fixtures/orders-page.json   # grava o exemplo
 ```
 
-Sem `--dry-run`, a carga com o token grava comprador e endereço **reais** no MySQL local. Até a decisão da pergunta
-**AMO-Q4** (pendência 7), com dado real só `--dry-run`.
+**Com dado real, no computador do dev, só `--dry-run`** (decisão AMO-Q4, pendência 7): sem `--dry-run`, a carga com o
+token grava comprador e endereço reais no MySQL local. A primeira carga que grava roda na VPS.
 
 Agenda: a cada 30 min (`*/30 * * * *`, fuso de São Paulo), quando o agendador for ligado.
 
@@ -183,9 +183,12 @@ aceito: a autenticação vem antes da validação dos filtros.
    parece ter duplicado filhas. O conector grava uma por pedido. O Power BI da Amobeleza usa `anymarket_orders`,
    `_tracking` e `_items` (o join em `_items` "multiplica linhas antes da deduplicação", segundo a doc) — conferir na
    paridade se algum número do painel depende da duplicidade.
-7. **Dado pessoal no Docker local** (pergunta **AMO-Q4**, aguarda o Matheus). Com o token, `run anymarket-orders` sem
+7. **Dado pessoal no Docker local — decidido (AMO-Q4, Matheus, 18/11/2026).** Com o token, `run anymarket-orders` sem
    `--dry-run` grava comprador e endereço reais no MySQL local; o `CLAUDE.md` diz "nada de dado de produção no Docker
-   local", e o ADR das travas diz que as cargas reais gravam no Docker local. Até decidir, com dado real só `--dry-run`.
+   local", e o ADR das travas diz que as cargas reais gravam no Docker local. Decisão: no computador do dev, com dado
+   real, **só `--dry-run`**; a primeira carga que grava roda na VPS. Alternativa aceita: Docker local com
+   `anymarket_order_buyer` e `anymarket_order_shipping` esvaziadas logo depois da conferência. Regra de procedimento,
+   sem trava no código (o código não distingue o computador do dev da VPS).
 8. **429 e o núcleo.** O transporte lê `Retry-After`, que o AnyMarket não manda. O conector contorna com a espera de
    60 s; um PR no núcleo pode ensinar o transporte a ler `ratelimit-reset` (fora do escopo desta fase).
 9. **Paridade** ainda não implementada (precisa do usuário só leitura no banco da cliente).
