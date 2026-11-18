@@ -30,6 +30,9 @@ ONLY` com `max_execution_time`, e nunca lê tabela do Laravel. Consulta na produ
 
 - Chaves só no `.env` (fora do Git). `.env.example` tem só nomes. Nunca cole chave em código, doc, commit ou mensagem.
 - As documentações da WPP (PDF) têm senhas em texto aberto, inclusive root: **nunca** entram no repo nem são copiadas.
+- Erro do MySQL carrega o SQL montado e valores na mensagem: o writer sobe só `DatabaseError` (código e coluna) e o
+  logger sanitiza a cadeia de `cause` (`src/core/errors.ts`). Não logue `err.sql`/`sqlMessage` à mão nem guarde o erro
+  cru do driver.
 - Pedidos, clientes e `anymarket_buyer` têm dado pessoal: log só com contagens e IDs; nada de dado de produção no
   Docker local; fixtures só com exemplos públicos das APIs; `reports/` fica fora do Git.
 
