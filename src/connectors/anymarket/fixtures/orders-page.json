@@ -1,0 +1,222 @@
+{
+	"links": [
+		{
+			"rel": "next",
+			"href": "https://sandbox-api.anymarket.com.br/v2/orders?offset=100&limit=100"
+		}
+	],
+	"content": [
+		{
+			"id": 0,
+			"accountName": "string",
+			"marketPlaceId": "string",
+			"marketPlaceNumber": "string",
+			"partnerId": "string",
+			"marketPlace": "string",
+			"subChannel": "string",
+			"subChannelNormalized": "string",
+			"createdAt": "2022-02-24T14:15:22Z",
+			"paymentDate": "2022-02-24T14:15:22Z",
+			"cancelDate": "2022-02-24T14:15:22Z",
+			"shippingOptionId": "string",
+			"transmissionStatus": "string",
+			"transmissionMessage": "string",
+			"status": "PENDING",
+			"marketPlaceStatus": "string",
+			"marketPlaceStatusComplement": "string",
+			"documentIntermediator": "string",
+			"intermediateRegistrationId": "string",
+			"documentPaymentInstitution": "string",
+			"fulfillment": true,
+			"discount": 0,
+			"freight": 0,
+			"interestValue": 0,
+			"gross": 0,
+			"total": 0,
+			"marketPlaceUrl": "string",
+			"marketPlaceShipmentStatus": "string",
+			"invoice": {
+				"accessKey": "string",
+				"series": "string",
+				"number": "string",
+				"date": "2022-02-24T14:15:22Z",
+				"cfop": "string",
+				"companyStateTaxId": "string",
+				"linkNfe": "string",
+				"invoiceLink": "string",
+				"extraDescription": "string",
+				"fiscalMetadata": {
+					"operationType": "string",
+					"emissionType": "string",
+					"authorizationProtocol": "string"
+				}
+			},
+			"shipping": {
+				"city": "string",
+				"state": "string",
+				"stateNameNormalized": "string",
+				"country": "string",
+				"countryAcronymNormalized": "string",
+				"countryNameNormalized": "string",
+				"address": "string",
+				"number": "string",
+				"neighborhood": "string",
+				"street": "string",
+				"comment": "string",
+				"reference": "string",
+				"zipCode": "string",
+				"receiverName": "string",
+				"promisedShippingTime": "2019-08-24T14:15:22Z"
+			},
+			"billingAddress": {
+				"city": "string",
+				"state": "string",
+				"stateNameNormalized": "string",
+				"country": "string",
+				"countryAcronymNormalized": "string",
+				"countryNameNormalized": "string",
+				"street": "string",
+				"number": "string",
+				"neighborhood": "string",
+				"comment": "string",
+				"reference": "string",
+				"zipCode": "string"
+			},
+			"anymarketAddress": {
+				"state": "string",
+				"city": "string",
+				"zipCode": "string",
+				"neighborhood": "string",
+				"address": "string",
+				"street": "string",
+				"number": "string",
+				"comment": "string",
+				"reference": "string",
+				"receiverName": "string",
+				"promisedShippingTime": "string"
+			},
+			"buyer": {
+				"marketPlaceId": "string",
+				"name": "string",
+				"email": "string",
+				"document": "string",
+				"documentType": "string",
+				"phone": "string",
+				"cellPhone": "string",
+				"documentNumberNormalized": "string"
+			},
+			"payments": [
+				{
+					"method": "string",
+					"status": "string",
+					"value": 0,
+					"installments": 0,
+					"marketplaceId": "string",
+					"gatewayFee": 0,
+					"marketplaceFee": 0,
+					"paymentMethodNormalized": "string",
+					"paymentDetailNormalized": "string",
+					"documentPaymentInstitution": "string",
+					"cardOperator": "string",
+					"orderAuthorizationCardCode": "string"
+				}
+			],
+			"items": [
+				{
+					"product": { "id": 0, "title": "string" },
+					"sku": {
+						"id": 0,
+						"title": "string",
+						"partnerId": "string",
+						"externalId": "string",
+						"ean": "string"
+					},
+					"amount": 0,
+					"unit": 0,
+					"gross": 0,
+					"total": 0,
+					"discount": 0,
+					"discountItemMetadata": [{ "type": "COUPON", "discountProductSeller": 5 }],
+					"shippings": [
+						{
+							"id": 0,
+							"shippingtype": "string",
+							"shippingCarrierNormalized": "string",
+							"shippingCarrierTypeNormalized": "string"
+						}
+					],
+					"stocks": [{ "stockLocalId": 0, "stockName": "string", "amount": 0 }],
+					"marketPlaceId": "string",
+					"orderItemId": "string",
+					"idInMarketPlace": "string",
+					"officialStoreId": "string",
+					"officialStoreName": "string",
+					"listingType": "string",
+					"freeShipping": true
+				},
+				{
+					"product": { "id": 1, "title": "string" },
+					"sku": {
+						"id": 1,
+						"title": "string",
+						"partnerId": "string",
+						"externalId": "string",
+						"ean": "string"
+					},
+					"amount": 0,
+					"unit": 0,
+					"gross": 0,
+					"total": 0,
+					"discount": 0,
+					"discountItemMetadata": [{ "type": "FREE_ITEM", "discountProductMarketplace": 8 }],
+					"marketPlaceId": "string",
+					"orderItemId": "string",
+					"idInMarketPlace": "string",
+					"officialStoreId": "string",
+					"officialStoreName": "string",
+					"listingType": "string",
+					"freeShipping": true
+				}
+			],
+			"tracking": {
+				"url": "string",
+				"number": "string",
+				"carrier": "string",
+				"carrierDocument": "string",
+				"date": "2019-08-24T14:15:22Z",
+				"deliveredDate": "2019-08-24T14:15:22Z",
+				"estimateDate": "2019-08-24T14:15:22Z",
+				"shippedDate": "2019-08-24T14:15:22Z"
+			},
+			"deliveryStatus": "UNKNOWN",
+			"idAccount": 0,
+			"pickup": {
+				"id": 0,
+				"description": "string",
+				"partnerId": 0,
+				"marketplaceId": "string",
+				"receiverName": "string"
+			},
+			"metadata": {
+				"discountSummarized": 35.9,
+				"number-of-packages": "1",
+				"cdZipCode": "string",
+				"needInvoiceXML": "true"
+			},
+			"discountMetadata": [
+				{
+					"type": ["COUPON"],
+					"discountDetails": [
+						{ "type": "COUPON", "discountOrderSeller": 10, "discountOrderMarketplace": 5.9 }
+					]
+				}
+			]
+		}
+	],
+	"page": {
+		"size": 100,
+		"totalElements": 1,
+		"totalPages": 1,
+		"number": 0
+	}
+}
