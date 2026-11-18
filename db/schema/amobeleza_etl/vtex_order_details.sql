@@ -1,5 +1,6 @@
 -- PROVISÓRIO: escrito a partir do dicionário da WPP (docs/contrato/mascavo_etl.md, p. 13–14) até o
 -- schema:pull trazer o DDL real da produção (índices, charset, colação). Só estrutura, sem dado.
+-- amobeleza_etl: índice também em updated_at (dicionário da Amobeleza).
 CREATE TABLE `vtex_order_details` (
 	`order_id` varchar(255) NOT NULL,
 	`sequence` varchar(255) NOT NULL,
@@ -46,5 +47,6 @@ CREATE TABLE `vtex_order_details` (
 	KEY `vtex_order_details_sales_channel_index` (`sales_channel`),
 	KEY `vtex_order_details_status_index` (`status`),
 	KEY `vtex_order_details_utm_source_index` (`utm_source`),
-	KEY `vtex_order_details_coupon_index` (`coupon`)
+	KEY `vtex_order_details_coupon_index` (`coupon`),
+	KEY `vtex_order_details_updated_at_index` (`updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

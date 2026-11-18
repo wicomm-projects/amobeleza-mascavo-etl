@@ -1,6 +1,6 @@
 -- PROVISÓRIO: escrito a partir do dicionário da WPP (docs/contrato/mascavo_etl.md, p. 12–13) até o
 -- schema:pull trazer o DDL real da produção (índices, charset, colação). Só estrutura, sem dado.
--- Sem PK no dicionário; order_id é a chave lógica (o ETL regrava por order_id).
+-- Sem PK no dicionário; order_id é a chave lógica (o ETL regrava por order_id). amobeleza_etl: tem seller_name e índices em order_date e last_change (dicionário da Amobeleza).
 CREATE TABLE `vtex_orders` (
 	`order_id` varchar(255) NOT NULL,
 	`order_date` datetime NOT NULL,
@@ -22,6 +22,7 @@ CREATE TABLE `vtex_orders` (
 	`total_items` int NOT NULL,
 	`currency_code` varchar(10) NOT NULL,
 	`hostname` varchar(255) NOT NULL,
+	`seller_name` varchar(255) DEFAULT NULL,
 	`last_change` datetime DEFAULT NULL,
 	`is_all_delivered` tinyint(1) DEFAULT NULL,
 	`is_any_delivered` tinyint(1) DEFAULT NULL,
@@ -33,5 +34,7 @@ CREATE TABLE `vtex_orders` (
 	KEY `vtex_orders_status_description_index` (`status_description`),
 	KEY `vtex_orders_sales_channel_index` (`sales_channel`),
 	KEY `vtex_orders_affiliate_id_index` (`affiliate_id`),
-	KEY `vtex_orders_origin_index` (`origin`)
+	KEY `vtex_orders_origin_index` (`origin`),
+	KEY `vtex_orders_order_date_index` (`order_date`),
+	KEY `vtex_orders_last_change_index` (`last_change`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

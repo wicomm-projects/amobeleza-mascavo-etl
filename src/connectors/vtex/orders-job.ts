@@ -8,9 +8,9 @@ import { accountOf, createBrandApi } from './client.js'
 import { loadOrdersFixture } from './fixtures.js'
 import { listOrdersInWindow } from './orders-window.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
-import { readStoredLastChange } from './stored.js'
-import { ORDER_CHILD_TABLES, ORDER_TABLES, type tOrderChildTable } from './tables.js'
-import { type iDetailRows, toDetailRows, toOrderRow } from './transform-orders.js'
+import { readStoredLastChange, readStoredSellerNames } from './stored.js'
+import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName, type tOrderChildTable } from './tables.js'
+import { type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
 import { toComparableUtc } from './values.js'
 
 /**
@@ -42,6 +42,8 @@ interface iFetchedOrders {
 	listed: tListOrder[]
 	details: tOrderDetail[]
 	hostnameFallback: string | null
+	/** seller_name já gravado em vtex_orders (só amobeleza_etl): vale para os pedidos que não mudaram. */
+	storedSellerNames: Map<string, string | null>
 	notes: string[]
 }
 
@@ -75,13 +77,14 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 	const from = ctx.options.from ?? new Date(to.getTime() - DEFAULT_WINDOW_DAYS * MS_PER_DAY)
 	const { orders: listed, stats } = await listOrdersInWindow(api, { from, to })
 
+	const listedIds = listed.map(order => order.orderId)
 	// Dry-run não abre conexão: sem o gravado, tudo conta como mudado.
-	const stored = ctx.options.dryRun
-		? new Map<string, string>()
-		: await readStoredLastChange(
-				ctx.database,
-				listed.map(order => order.orderId)
-			)
+	const readDatabase = !ctx.options.dryRun
+	const stored = readDatabase ? await readStoredLastChange(ctx.database, listedIds) : new Map<string, string>()
+	const storedSellerNames =
+		readDatabase && hasSellerName(ctx.database)
+			? await readStoredSellerNames(ctx.database, listedIds)
+			: new Map<string, string | null>()
 	const changed = listed.filter(order => hasChanged(order, stored))
 
 	ctx.logger.info(
@@ -126,7 +129,7 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 
 	if (failedIds.length > 0) notes.push(failedIdsNote('detalhe(s) com falha na API', failedIds))
 
-	return { listed, details, hostnameFallback: accountOf(brand) ?? null, notes }
+	return { listed, details, hostnameFallback: accountOf(brand) ?? null, storedSellerNames, notes }
 }
 
 const fetchFromFixture = async (file: string): Promise<iFetchedOrders> => {
@@ -136,6 +139,7 @@ const fetchFromFixture = async (file: string): Promise<iFetchedOrders> => {
 		listed: fixture.list.list,
 		details: fixture.orders,
 		hostnameFallback: fixture.account,
+		storedSellerNames: new Map(),
 		notes: [`fixture ${file}: ${fixture.list.list.length} pedido(s) na lista, ${fixture.orders.length} detalhe(s)`]
 	}
 }
@@ -162,26 +166,32 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const orderIds: string[] = []
 	const transformed: { detail: tOrderDetail; rows: iDetailRows }[] = []
 	const invalidIds: string[] = []
-
-	for (const order of fetched.listed) {
-		try {
-			orderRows.push(toOrderRow(order, fetched.hostnameFallback))
-			orderIds.push(order.orderId)
-		} catch (err) {
-			invalidIds.push(order.orderId)
-			ctx.logger.warn({ orderId: order.orderId, reason: errorMessage(err) }, 'Pedido da lista fora do formato')
-		}
-	}
+	const withSellerName = hasSellerName(ctx.database)
+	// seller_name: o do detalhe, quando veio nesta carga; senão, o já gravado.
+	const sellerNames = new Map(fetched.storedSellerNames)
 
 	for (const detail of fetched.details) {
 		try {
 			transformed.push({ detail, rows: toDetailRows(detail) })
+			sellerNames.set(detail.orderId, sellerNameOf(detail))
 		} catch (err) {
 			invalidIds.push(detail.orderId)
 			ctx.logger.warn(
 				{ orderId: detail.orderId, reason: errorMessage(err) },
 				'Pedido fora do formato das colunas'
 			)
+		}
+	}
+
+	for (const order of fetched.listed) {
+		try {
+			const row = toOrderRow(order, fetched.hostnameFallback)
+
+			orderRows.push(withSellerName ? { ...row, seller_name: sellerNames.get(order.orderId) ?? null } : row)
+			orderIds.push(order.orderId)
+		} catch (err) {
+			invalidIds.push(order.orderId)
+			ctx.logger.warn({ orderId: order.orderId, reason: errorMessage(err) }, 'Pedido da lista fora do formato')
 		}
 	}
 

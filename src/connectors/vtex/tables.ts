@@ -1,3 +1,5 @@
+import type { tDatabase } from '../../config/index.js'
+
 /** Tabelas VTEX, com a grafia do dicionário da WPP (docs/contrato/mascavo_etl.md). Mesmas nos dois bancos. */
 
 const ORDER_TABLES = {
@@ -34,5 +36,11 @@ const ORDER_CHILD_TABLES = [
 
 type tOrderChildTable = (typeof ORDER_CHILD_TABLES)[number]
 
-export { CATALOG_TABLES, ORDER_CHILD_TABLES, ORDER_TABLES }
+/**
+ * Diferença entre os bancos (doc da Amobeleza x doc da Mascavo): só `amobeleza_etl.vtex_orders` tem a coluna
+ * `seller_name` (o Power BI da Amobeleza lê: "seller vazio = Amobeleza"). As demais tabelas VTEX são iguais.
+ */
+const hasSellerName = (database: tDatabase): boolean => database === 'amobeleza_etl'
+
+export { CATALOG_TABLES, hasSellerName, ORDER_CHILD_TABLES, ORDER_TABLES }
 export type { tOrderChildTable }

@@ -95,6 +95,8 @@ Grafia das colunas exatamente como no dicionário (`docs/contrato/mascavo_etl.md
   `salesChannel`→`sales_channel`, `affiliateId`→`affiliate_id`, `origin`, `workflowInErrorState`, `workflowInRetry`,
   `ShippingEstimatedDate[Max|Min]`→`shipping_estimated_date[_max|_min]`, `orderIsComplete`, `authorizedDate`,
   `totalItems`, `currencyCode`, `hostname`, `lastChange`, `isAllDelivered`, `isAnyDelivered`, `readyForHandlingDate`.
+  Só em `amobeleza_etl`: `seller_name` = nome do seller do detalhe (`sellers[]`) quando não é a própria loja (id `1`),
+  nulo quando é — ver "Diferenças entre os bancos".
 - **`vtex_order_details`**: campos do topo do detalhe; `client_profile_id` = `clientProfileData.userProfileId`;
   `totals_items|discounts|shipping|taxes` = `totals[]` com id `Items|Discounts|Shipping|Tax` (0 quando o total não vem);
   `utm_source`/`coupon` = `marketingData`; `opentextfield` = `openTextField.value`; `commercialconditiondata` em JSON;
@@ -137,6 +139,34 @@ foram relaxadas para `NULL` (comentário no arquivo):
   (pedido não autorizado/faturado).
 - `vtex_order_items`: `lockid`, `refid`, `taxcode`, `costprice`.
 
+## Diferenças entre os bancos (doc da Mascavo × doc da Amobeleza)
+
+As duas docs da WPP (levantamento de 05/10/2026) foram comparadas coluna a coluna (nome, tipo, nulo, chave) nas 14
+tabelas. 12 são idênticas. A DDL de cada banco segue o seu dicionário:
+
+| Tabela               | `mascavo_etl` | `amobeleza_etl`                                                                                                              |
+| -------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `vtex_orders`        | 24 colunas    | + `seller_name` varchar(255) nulo ("nome do seller responsável pelo pedido"); índices também em `order_date` e `last_change` |
+| `vtex_order_details` | igual         | índice também em `updated_at`                                                                                                |
+
+**`seller_name`**: o Power BI da Amobeleza usa ("seller vazio = Amobeleza"; classifica o tipo de pedido por afiliado ou
+seller, inclusive "Marketplace IN", de seller terceiro). A doc não diz de onde o ETL antigo tirava o valor, e a lista do
+OMS não traz seller. O conector grava o nome do seller do detalhe (`sellers[]`) quando ele não é a própria loja (id `1`)
+e nulo quando é. Como `vtex_orders` é regravada a cada carga e o detalhe só vem do que mudou, o valor dos pedidos que
+não mudaram é lido do próprio `vtex_orders` antes de regravar. _Assumido, a confirmar na paridade._
+
+**Só na Amobeleza, fora desta fase** (pendência):
+
+- `vtex_produto_categoria` (23.576 linhas, ativa): dimensão de produto por SKU (`cod_produto`, `nome_produto`,
+  `produto`, `barra_ean`, `marca`, `departamento`, `categoria`). O Power BI da Amobeleza não a lê (as consultas VTEX
+  dele usam `vtex_orders`, `vtex_order_details`, `vtex_order_items`, `vtex_order_shipping_data` e
+  `vtex_client_profile`). Entra numa fase de catálogo se alguém usar.
+- Na Amobeleza, `vtex_products` estava "sem atualização" no levantamento (o ETL antigo já não atualizava). O
+  `vtex-catalog` volta a atualizar; o Power BI da Amobeleza não lê a tabela.
+
+O que o Power BI da Amobeleza faz com os dados reforça duas convenções: `total_value ÷ 100` (centavos) e "subtrai 3 h"
+(UTC); e em `vtex_client_profile` aplica "tipo em minúsculas → PF/PJ", compatível com `documentType` (`cpf`/`cnpj`).
+
 ## Fixtures
 
 `src/connectors/vtex/fixtures/` — só exemplos públicos da documentação da VTEX (specs OpenAPI), nenhum dado da cliente.
@@ -163,5 +193,7 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
       API não está documentado — comparar a contagem de `order_is_complete = 0`);
     - regra de `department`/`sub_category_id` e profundidade da árvore em `vtex_category_tree` (22 linhas na Mascavo);
     - `vtex_client_profile.type` (`cpf`/`cnpj` ou outro texto);
-    - formato de booleano em `varchar` (`vtex_products.show_without_stock`).
-4. Testes de conector (vêm com as chaves): divisão de janela, comparação de `lastChange`, transformações.
+    - formato de booleano em `varchar` (`vtex_products.show_without_stock`);
+    - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio).
+4. `vtex_produto_categoria` (só Amobeleza): fora desta fase, ver "Diferenças entre os bancos".
+5. Testes de conector (vêm com as chaves): divisão de janela, comparação de `lastChange`, transformações.

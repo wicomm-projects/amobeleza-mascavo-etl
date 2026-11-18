@@ -210,6 +210,7 @@ const orderDetailSchema = z.object({
 	authorizedDate: nullableText,
 	invoicedDate: nullableText,
 	items: z.array(itemSchema).nullish(),
+	sellers: z.array(z.object({ id: numberOrText, name: nullableText })).nullish(),
 	clientProfileData: clientProfileSchema.nullish(),
 	marketingData: z.object({ utmSource: nullableText, coupon: nullableText }).nullish(),
 	ratesAndBenefitsData: z.object({ rateAndBenefitsIdentifiers: z.array(rateIdentifierSchema).nullish() }).nullish(),

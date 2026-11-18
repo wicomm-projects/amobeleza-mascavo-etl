@@ -51,6 +51,20 @@ const toOrderRow = (order: tListOrder, hostnameFallback: string | null): tRow =>
 	ready_for_handling_date: toUtcDate(order.readyForHandlingDate)
 })
 
+/** Seller "1" é a própria loja na VTEX. */
+const MAIN_SELLER_ID = '1'
+
+/**
+ * `seller_name` (só amobeleza_etl.vtex_orders): nome do seller do pedido quando é um seller terceiro; nulo quando é a
+ * própria loja — o Power BI lê "seller vazio = Amobeleza". Na VTEX cada pedido (depois do split) tem um seller só.
+ * A regra exata do ETL antigo não está documentada: confirmar na paridade.
+ */
+const sellerNameOf = (detail: tOrderDetail): string | null => {
+	const seller = detail.sellers?.find(candidate => String(candidate.id) !== MAIN_SELLER_ID)
+
+	return seller ? toText(seller.name) : null
+}
+
 const totalOf = (detail: tOrderDetail, id: string): number => detail.totals?.find(total => total.id === id)?.value ?? 0
 
 /** openTextField vem como { value: "..." } ou texto, ou nulo. */
@@ -305,6 +319,7 @@ export {
 	toLogisticsInfoRows,
 	toOrderRow,
 	toPaymentRows,
+	sellerNameOf,
 	toRateRows,
 	toShippingDataRows,
 	toTransactionRows
