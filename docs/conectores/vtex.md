@@ -82,6 +82,13 @@ doc — conferir ao criar a chave. Nenhum recurso de escrita.
       notas ("uniqueid: pedido antigo → novo"), para conferir na paridade.
     - `vtex_client_profile`: `upsert` (PK `id`), um perfil por cliente, o do pedido alterado por último.
 
+**Dado pessoal** (decisão AMO-Q6, 18/11/2026): enquanto o destino é o MySQL local, nome, documento, e-mail e telefone
+dos clientes são gravados como `[mascarado]` — `vtex_client_profile` (`first_name`, `last_name`, `document`,
+`home_phone`, `email`) e `vtex_order_details.followup_email` (`personal-data.ts`). A máscara entra só na gravação: as
+transformações continuam fiéis, e a paridade compara em memória com a produção. As **cargas reais com chave rodam só no
+Docker da VPS**, nunca no notebook. Bairro e CEP de `vtex_order_shipping_data` não são mascarados (o Power BI usa UF e
+cidade; não estavam na decisão). A máscara sai só no PR de liberação da produção.
+
 **Erro de gravação sem dado pessoal:** o mysql2 anexa ao erro o SQL com os valores (nomes, e-mails, endereços) e o
 runner loga o erro inteiro. Os dois jobs refazem o erro só com o código e a mensagem do MySQL, sem `cause`, e omitem os
 valores citados ("Duplicate entry '[omitido]'"). A proteção definitiva é no núcleo (incluir `err.sql` no `redact` do
@@ -216,8 +223,7 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
 4. `vtex_produto_categoria` (só Amobeleza): fora desta fase, ver "Diferenças entre os bancos".
 5. Núcleo (fora da pasta do conector, precisa de autorização): incluir `err.sql` / `*.sql` no `redact` do logger, para
    nenhum conector vazar o SQL com valores num erro de gravação.
-6. Dado pessoal no Docker local: o `CLAUDE.md` diz "nada de dado de produção no Docker local" e o ADR de travas diz que
-   as cargas com chave gravam no Docker. A primeira carga real grava `vtex_client_profile`, `followup_email` e bairro/CEP
-   na máquina de quem rodar — decidir antes.
+6. ~~Dado pessoal no Docker local~~ — decidido (AMO-Q6): mascarado na gravação, cargas reais só no Docker da VPS (ver
+   "Dado pessoal").
 7. Testes de conector (vêm com as chaves): divisão de janela (inclusive data com 7 casas decimais), comparação de
    `lastChange`, transformações. Os testes de mesa desta fase (API falsa) não foram commitados.

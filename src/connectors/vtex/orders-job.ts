@@ -8,6 +8,7 @@ import { accountOf, createBrandApi } from './client.js'
 import { isTransportFailure, withoutSqlPayload } from './errors.js'
 import { loadOrdersFixture } from './fixtures.js'
 import { listOrdersInWindow } from './orders-window.js'
+import { maskPersonalData } from './personal-data.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
 import { readStoredItemOwners, readStoredLastChange, readStoredSellerNames } from './stored.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName, type tOrderChildTable } from './tables.js'
@@ -30,6 +31,8 @@ import { toComparableUtc } from './values.js'
  * vazio, inteiro inválido) fica de fora desta carga, com o ID nas notas, e é buscado de novo na próxima (o last_change
  * dele não foi gravado). A carga só falha inteira se todos os detalhes falharem por transporte (credencial, permissão ou
  * API fora do ar).
+ *
+ * Dado pessoal (nome, documento, e-mail, telefone) é gravado mascarado enquanto o destino é o local: personal-data.ts.
  *
  * Dry-run: não lê o banco, então busca o detalhe de todos os pedidos da janela — use uma janela curta.
  * Fixture: grava a lista e os detalhes do arquivo, sem comparar lastChange (não há API).
@@ -257,7 +260,10 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 			await tx.replaceByKeys(ORDER_TABLES.orders, 'order_id', orderIds, orderRows)
 			await tx.upsert(
 				ORDER_TABLES.details,
-				transformed.map(({ rows }) => rows.details),
+				maskPersonalData(
+					ORDER_TABLES.details,
+					transformed.map(({ rows }) => rows.details)
+				),
 				{ keyColumns: ['order_id'] }
 			)
 
@@ -269,7 +275,9 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 			await tx.replaceByKeys(ORDER_TABLES.items, 'order_id', detailIds, [])
 			await tx.upsert(ORDER_TABLES.items, itemRows, { keyColumns: ['uniqueid'] })
-			await tx.upsert(ORDER_TABLES.clientProfile, profiles, { keyColumns: ['id'] })
+			await tx.upsert(ORDER_TABLES.clientProfile, maskPersonalData(ORDER_TABLES.clientProfile, profiles), {
+				keyColumns: ['id']
+			})
 		})
 		.catch(err => {
 			throw withoutSqlPayload(err)
