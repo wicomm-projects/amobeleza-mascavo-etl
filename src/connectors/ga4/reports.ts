@@ -280,5 +280,5 @@ const REPORTS_BY_BRAND: Readonly<Record<tBrand, readonly iReportDefinition[]>> =
 
 const reportsOf = (brand: tBrand): readonly iReportDefinition[] => REPORTS_BY_BRAND[brand]
 
-export { CATEGORY_START_DATE, GA4_TABLES, POR_HORA_DAYS, reportsOf }
+export { CATEGORY_START_DATE, POR_HORA_DAYS, reportsOf }
 export type { iReportDefinition, iRowContext, tFilterExpression, tGa4Table, tOrderBy, tReportScope }

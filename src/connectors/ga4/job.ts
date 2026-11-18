@@ -5,7 +5,7 @@ import type { iJob, iJobContext, iRunSummary } from '../../core/jobs/types.js'
 
 import { createFixtureReader, createLiveReader, type iGa4Reader, type iReportRequest, loadFixture } from './api.js'
 import { createChannelClassifier } from './de-para.js'
-import { GA4_TABLES, type iReportDefinition, reportsOf } from './reports.js'
+import { type iReportDefinition, reportsOf } from './reports.js'
 import type { iReportData, tFixture } from './schemas.js'
 import { collapseRows, toRows } from './transform.js'
 import { SAO_PAULO_TZ, addDays, dayInTimeZone, type iDateWindow, resolveWindow } from './window.js'
@@ -227,9 +227,13 @@ const ga4Job: iJob = {
 	source: 'ga4',
 	scope: 'brand',
 	description: 'Relatórios do GA4 nas tabelas sheets_google_drive_* (janela de 3 dias; category e por_hora inteiras)',
-	// O núcleo pede uma lista só para as duas marcas: é a união, e o writer de cada marca aceita as 8. Quem limita cada
-	// marca às suas tabelas é reports.ts. Tabelas por marca no núcleo: pergunta AMO-Q3 (também quebra o schema:pull).
-	tables: GA4_TABLES,
+	// Tabelas por marca (os bancos diferem): o writer de cada marca e o schema:pull só veem as tabelas dela —
+	// 5 na Mascavo, 4 na Amobeleza.
+	tables: brand => {
+		if (!brand) throw new AppError('O job ga4 roda por marca.')
+
+		return reportsOf(brand).map(definition => definition.table)
+	},
 	database: brand => {
 		if (!brand) throw new AppError('O job ga4 roda por marca.')
 

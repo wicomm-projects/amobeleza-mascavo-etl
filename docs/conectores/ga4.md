@@ -178,14 +178,7 @@ acima: `bounces` = sessões não engajadas, `pageviews` = `screenPageViews`, `so
 - Cota: propriedade padrão tem 200.000 tokens/dia e 40.000/hora; 9 relatórios a cada 3 h ficam bem abaixo, mas a carga
   retroativa deve ser feita em janelas de ~1 mês.
 
-**Limite do núcleo (AMO-Q3):** `iJob.tables` é uma lista só para as duas marcas, então o job declara as 8 tabelas (a
-união). Duas consequências até o núcleo aceitar tabelas por marca:
-
-- O writer de cada marca recebe as 8: o writer da Amobeleza aceitaria gravar em `sheets_google_drive_items`. Hoje quem
-  impede é só `reports.ts` (cada marca só tem as suas definições); a trava "lista de tabelas" da ADR fica mais fraca
-  para este job.
-- O `schema:pull` lê as 8 nos dois bancos, e a Amobeleza não tem `vendas`, `users`, `items` nem `category`. O primeiro
-  `SHOW CREATE TABLE` que falhar derruba **o comando inteiro**, inclusive o pull das tabelas VTEX e AnyMarket das
-  outras fases.
-
-Proposta: um PR pequeno no núcleo (`tables` por marca), revisado à parte, antes do primeiro `schema:pull`.
+**Tabelas por marca (AMO-Q3, resolvida pelo PR #2 do núcleo):** o job declara `tables` como função da marca, a
+partir de `reports.ts`. O writer da Mascavo só aceita as 5 tabelas dela e o da Amobeleza só as 4 dela. O
+`schema:pull` também pede a cada banco só as tabelas daquela marca, e a Amobeleza não tem `vendas`, `users`, `items`
+nem `category`. Para conferir: `npm run etl -- jobs`.
