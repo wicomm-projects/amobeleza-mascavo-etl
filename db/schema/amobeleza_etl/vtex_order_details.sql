@@ -1,0 +1,52 @@
+-- PROVISÓRIO: escrito a partir do dicionário da WPP (docs/contrato/mascavo_etl.md, p. 13–14) até o
+-- schema:pull trazer o DDL real da produção (índices, charset, colação). Só estrutura, sem dado.
+-- amobeleza_etl: índice também em updated_at (dicionário da Amobeleza).
+CREATE TABLE `vtex_order_details` (
+	`order_id` varchar(255) NOT NULL,
+	`sequence` varchar(255) NOT NULL,
+	`client_profile_id` varchar(255) DEFAULT NULL,
+	`marketplace_order_id` varchar(255) DEFAULT NULL,
+	-- Relaxada para NULL (dicionário diz NOT NULL; a VTEX pode mandar nulo). Confirmar no schema:pull. Pedido da própria loja não tem endpoint.
+	`marketplace_services_endpoint` varchar(255) DEFAULT NULL,
+	`seller_order_id` varchar(255) DEFAULT NULL,
+	`origin` varchar(255) NOT NULL,
+	`affiliate_id` varchar(255) DEFAULT NULL,
+	`sales_channel` varchar(3) NOT NULL,
+	`merchant_name` varchar(255) DEFAULT NULL,
+	`status` varchar(255) NOT NULL,
+	`status_description` varchar(255) NOT NULL,
+	`value` decimal(10,2) NOT NULL,
+	`creation_date` datetime NOT NULL,
+	`last_change` datetime NOT NULL,
+	`order_group` varchar(255) DEFAULT NULL,
+	`totals_items` decimal(10,2) NOT NULL,
+	`totals_discounts` decimal(10,2) NOT NULL,
+	`totals_shipping` decimal(10,2) NOT NULL,
+	`totals_taxes` decimal(10,2) NOT NULL,
+	`followup_email` varchar(255) NOT NULL,
+	`hostname` varchar(255) NOT NULL,
+	`opentextfield` varchar(255) DEFAULT NULL,
+	`roundingerror` int NOT NULL,
+	`orderformid` varchar(255) DEFAULT NULL,
+	`commercialconditiondata` json DEFAULT NULL,
+	`iscompleted` tinyint(1) NOT NULL,
+	`allowcancellation` tinyint(1) NOT NULL,
+	`allowedition` tinyint(1) NOT NULL,
+	`ischeckedin` tinyint(1) NOT NULL,
+	`utm_source` varchar(255) DEFAULT NULL,
+	`coupon` varchar(255) DEFAULT NULL,
+	-- Relaxada para NULL (dicionário diz NOT NULL; a VTEX pode mandar nulo). Confirmar no schema:pull. Pedido não autorizado não tem data.
+	`authorizeddate` datetime DEFAULT NULL,
+	-- Relaxada para NULL (dicionário diz NOT NULL; a VTEX pode mandar nulo). Confirmar no schema:pull. Pedido não faturado não tem data (convencoes.md).
+	`invoiceddate` datetime DEFAULT NULL,
+	`created_at` timestamp NULL DEFAULT NULL,
+	`updated_at` timestamp NULL DEFAULT NULL,
+	PRIMARY KEY (`order_id`),
+	KEY `vtex_order_details_client_profile_id_index` (`client_profile_id`),
+	KEY `vtex_order_details_origin_index` (`origin`),
+	KEY `vtex_order_details_sales_channel_index` (`sales_channel`),
+	KEY `vtex_order_details_status_index` (`status`),
+	KEY `vtex_order_details_utm_source_index` (`utm_source`),
+	KEY `vtex_order_details_coupon_index` (`coupon`),
+	KEY `vtex_order_details_updated_at_index` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
