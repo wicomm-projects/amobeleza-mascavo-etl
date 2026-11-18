@@ -74,8 +74,12 @@ interface iJob {
 	source: tSourceName
 	scope: tScope
 	description: string
-	/** Tabelas que o job grava. O writer recusa qualquer outra; o schema:pull só lê estas. */
-	tables: readonly string[]
+	/**
+	 * Tabelas que o job grava. O writer recusa qualquer outra; o schema:pull só lê estas.
+	 * Lista fixa quando é igual nas duas marcas; função por marca quando os bancos diferem (ex.: o GA4 grava 5 tabelas na
+	 * Mascavo e 4 na Amobeleza). Leia sempre por `tablesOf(job, brand)` (registry.ts).
+	 */
+	tables: readonly string[] | ((brand?: tBrand) => readonly string[])
 	/** Banco de destino (por marca, ou fixo no global). */
 	database: (brand?: tBrand) => tDatabase
 	/** Expressão cron (fuso de São Paulo). Sem ela, o job só roda manualmente. */

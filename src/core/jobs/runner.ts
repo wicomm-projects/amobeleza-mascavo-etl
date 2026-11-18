@@ -3,7 +3,7 @@ import { createWriter } from '../db/index.js'
 import { AppError } from '../errors.js'
 
 import { withJobLock } from './lock.js'
-import { sourceOfJob } from './registry.js'
+import { sourceOfJob, tablesOf } from './registry.js'
 import { type iRunRecord, recordRun, runKey } from './status.js'
 import type { iJob, iRunOptions } from './types.js'
 
@@ -46,7 +46,7 @@ const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord>
 	logger.info({ dryRun: options.dryRun, fixture: Boolean(options.fixture) }, 'Carga iniciada')
 
 	const database = job.database(brand)
-	const writer = createWriter({ database, tables: job.tables, dryRun: options.dryRun })
+	const writer = createWriter({ database, tables: tablesOf(job, brand), dryRun: options.dryRun })
 
 	try {
 		const summary = await withJobLock(runKey(job.name, brand), !options.dryRun, () =>

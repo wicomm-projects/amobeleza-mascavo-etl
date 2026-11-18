@@ -67,7 +67,7 @@ const commandSources = async () => {
 }
 
 const commandJobs = async () => {
-	const { allJobs } = await import('./core/jobs/registry.js')
+	const { allJobs, brandsOf, tablesOf } = await import('./core/jobs/registry.js')
 	const jobs = allJobs()
 
 	if (jobs.length === 0) {
@@ -77,7 +77,11 @@ const commandJobs = async () => {
 	}
 
 	for (const job of jobs) {
-		out(`${job.name.padEnd(22)} ${job.scope.padEnd(7)} ${job.schedule ?? 'manual'}  ${job.tables.join(', ')}`)
+		out(`${job.name.padEnd(22)} ${job.scope.padEnd(7)} ${job.schedule ?? 'manual'}`)
+
+		for (const brand of brandsOf(job)) {
+			out(`  ${(brand ?? 'global').padEnd(10)} ${job.database(brand)}: ${tablesOf(job, brand).join(', ')}`)
+		}
 	}
 
 	return 0
