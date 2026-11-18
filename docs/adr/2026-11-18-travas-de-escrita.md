@@ -63,4 +63,7 @@ Testes unitários em `tests/core/` cobrem cada trava com conexões falsas; `test
 - Liberar a produção exige um PR próprio, revisado por agente separado, que: troque o marcador por uma regra explícita de
   produção (ex.: host + usuário próprio + lista de tabelas + flag por fonte), e só depois de paridade OK, backup das
   tabelas do mapa e autorização por escrito da cliente.
-- Enquanto isso, as cargas reais (com chave) gravam no Docker local, o que permite validar tudo sem risco.
+- Enquanto isso, as cargas reais (com chave) gravam no Docker local, o que permite validar tudo sem risco. Dado pessoal
+  (clientes VTEX, compradores e endereços do AnyMarket) é gravado como `[mascarado]` no local
+  (`src/connectors/vtex/personal-data.ts` e `src/connectors/anymarket/personal-data.ts`); o PR de liberação da produção
+  desliga as duas máscaras.
