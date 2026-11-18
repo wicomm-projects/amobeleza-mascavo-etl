@@ -6,24 +6,33 @@ import { ORDER_TABLES } from './tables.js'
 import { toComparableUtc } from './values.js'
 
 /**
- * Leituras no banco de DESTINO (Docker local, pela conexão protegida do núcleo), por order_id, em lotes. Só SELECT.
+ * Leituras no banco de DESTINO (Docker local, pela conexão protegida do núcleo), por chave, em lotes. Só SELECT; nunca
+ * em dry-run.
  *
  * - `readStoredLastChange`: last_change gravado em vtex_order_details, para buscar o detalhe só do que mudou. A base é
  *   o detalhe (não vtex_orders): ele só é gravado quando o detalhe veio, então um detalhe que falhou numa carga é
  *   buscado de novo na próxima.
  * - `readStoredSellerNames`: seller_name gravado em vtex_orders (só amobeleza_etl), para manter o valor dos pedidos que
  *   não mudaram — vtex_orders é regravada inteira a cada carga, e o seller vem do detalhe.
+ * - `readStoredItemOwners`: de qual pedido é cada uniqueid já gravado em vtex_order_items, para contar item que muda de
+ *   pedido (uniqueId repetido entre pedidos).
  */
 
 const SELECT_BATCH_SIZE = 1000
 
-/** Tabela e coluna entram no SQL: só estes pares, fixos no código. */
+/** Tabela, chave e coluna entram no SQL: só estes trios, fixos no código. */
 const READABLE = {
-	lastChange: { table: ORDER_TABLES.details, column: 'last_change' },
-	sellerName: { table: ORDER_TABLES.orders, column: 'seller_name' }
+	lastChange: { table: ORDER_TABLES.details, key: 'order_id', column: 'last_change' },
+	sellerName: { table: ORDER_TABLES.orders, key: 'order_id', column: 'seller_name' },
+	itemOwner: { table: ORDER_TABLES.items, key: 'uniqueid', column: 'order_id' }
 } as const
 
 type tReadable = (typeof READABLE)[keyof typeof READABLE]
+
+interface iKeyValue {
+	key: string
+	value: unknown
+}
 
 const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	const chunks: T[][] = []
@@ -33,26 +42,26 @@ const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	return chunks
 }
 
-const selectByOrderIds = async (
+const selectByKeys = async (
 	database: tDatabase,
-	{ table, column }: tReadable,
-	orderIds: readonly string[],
+	{ table, key, column }: tReadable,
+	keys: readonly string[],
 	source: iConnectionSource
-): Promise<{ order_id: string; value: unknown }[]> => {
+): Promise<iKeyValue[]> => {
 	// O nome do banco entra no SQL: só os dois bancos conhecidos (tDatabase), conferido também em tempo de execução.
 	if (!(DATABASES as readonly string[]).includes(database)) throw new SafetyError(`Banco desconhecido: ${database}`)
 
-	if (orderIds.length === 0) return []
+	if (keys.length === 0) return []
 
 	const connection = await source.getConnection()
-	const rows: { order_id: string; value: unknown }[] = []
+	const rows: iKeyValue[] = []
 
 	try {
-		for (const batch of chunk(orderIds, SELECT_BATCH_SIZE)) {
+		for (const batch of chunk(keys, SELECT_BATCH_SIZE)) {
 			rows.push(
-				...rowsOf<{ order_id: string; value: unknown }>(
+				...rowsOf<iKeyValue>(
 					await connection.query(
-						`SELECT order_id, \`${column}\` AS value FROM \`${database}\`.\`${table}\` WHERE order_id IN (?)`,
+						`SELECT \`${key}\` AS \`key\`, \`${column}\` AS value FROM \`${database}\`.\`${table}\` WHERE \`${key}\` IN (?)`,
 						[batch]
 					)
 				)
@@ -73,10 +82,10 @@ const readStoredLastChange = async (
 ): Promise<Map<string, string>> => {
 	const stored = new Map<string, string>()
 
-	for (const row of await selectByOrderIds(database, READABLE.lastChange, orderIds, source)) {
+	for (const row of await selectByKeys(database, READABLE.lastChange, orderIds, source)) {
 		const lastChange = toComparableUtc(row.value as Date | string | null)
 
-		if (lastChange) stored.set(row.order_id, lastChange)
+		if (lastChange) stored.set(row.key, lastChange)
 	}
 
 	return stored
@@ -90,11 +99,26 @@ const readStoredSellerNames = async (
 ): Promise<Map<string, string | null>> => {
 	const stored = new Map<string, string | null>()
 
-	for (const row of await selectByOrderIds(database, READABLE.sellerName, orderIds, source)) {
-		stored.set(row.order_id, row.value === null || row.value === undefined ? null : String(row.value))
+	for (const row of await selectByKeys(database, READABLE.sellerName, orderIds, source)) {
+		stored.set(row.key, row.value === null || row.value === undefined ? null : String(row.value))
 	}
 
 	return stored
 }
 
-export { readStoredLastChange, readStoredSellerNames }
+/** uniqueid → order_id do item já gravado. */
+const readStoredItemOwners = async (
+	database: tDatabase,
+	uniqueIds: readonly string[],
+	source: iConnectionSource = guardedTargetSource()
+): Promise<Map<string, string>> => {
+	const stored = new Map<string, string>()
+
+	for (const row of await selectByKeys(database, READABLE.itemOwner, uniqueIds, source)) {
+		stored.set(row.key, String(row.value))
+	}
+
+	return stored
+}
+
+export { readStoredItemOwners, readStoredLastChange, readStoredSellerNames }

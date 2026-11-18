@@ -5,10 +5,11 @@ import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunSummary } from '../../core/jobs/types.js'
 
 import { accountOf, createBrandApi } from './client.js'
+import { isTransportFailure, withoutSqlPayload } from './errors.js'
 import { loadOrdersFixture } from './fixtures.js'
 import { listOrdersInWindow } from './orders-window.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
-import { readStoredLastChange, readStoredSellerNames } from './stored.js'
+import { readStoredItemOwners, readStoredLastChange, readStoredSellerNames } from './stored.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName, type tOrderChildTable } from './tables.js'
 import { type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
 import { toComparableUtc } from './values.js'
@@ -23,10 +24,12 @@ import { toComparableUtc } from './values.js'
  *    (replaceByKeys por order_id dos detalhes obtidos) e vtex_client_profile (upsert). vtex_order_items tem PK uniqueid:
  *    apaga os itens dos pedidos regravados e faz upsert por uniqueid, porque o mesmo uniqueId pode reaparecer em outro
  *    pedido (ex.: pedido incompleto refeito do mesmo carrinho) e um INSERT puro derrubaria a carga; fica com o item o
- *    pedido alterado por último.
+ *    pedido alterado por último, e a troca aparece nas notas.
  *
- * Detalhe que falha (rede, 5xx, campo fora do tipo) fica de fora desta carga e é buscado de novo na próxima, porque o
- * last_change dele não foi gravado. Se TODOS os detalhes falharem, a carga falha (credencial ou API fora do ar).
+ * Isolamento por pedido: detalhe que falha (rede, 5xx, resposta fora do schema) ou que não cabe nas colunas (NOT NULL
+ * vazio, inteiro inválido) fica de fora desta carga, com o ID nas notas, e é buscado de novo na próxima (o last_change
+ * dele não foi gravado). A carga só falha inteira se todos os detalhes falharem por transporte (credencial, permissão ou
+ * API fora do ar).
  *
  * Dry-run: não lê o banco, então busca o detalhe de todos os pedidos da janela — use uma janela curta.
  * Fixture: grava a lista e os detalhes do arquivo, sem comparar lastChange (não há API).
@@ -35,8 +38,8 @@ import { toComparableUtc } from './values.js'
 const DEFAULT_WINDOW_DAYS = 45
 const MS_PER_DAY = 86_400_000
 const SCHEDULE_EVERY_30_MIN = '*/30 * * * *'
-/** Quantos IDs de pedido com falha aparecem no resumo (o log tem todos). */
-const MAX_FAILED_IDS_IN_NOTES = 10
+/** Quantos IDs aparecem no resumo (o log tem todos). */
+const MAX_IDS_IN_NOTES = 10
 
 interface iFetchedOrders {
 	listed: tListOrder[]
@@ -57,18 +60,25 @@ const databaseOf = (brand?: tBrand): tDatabase => getBrandConfig(requireBrand(br
 
 const errorMessage = (reason: unknown): string => (reason instanceof Error ? reason.message : String(reason))
 
-const failedIdsNote = (label: string, ids: string[]): string => {
-	const shown = ids.slice(0, MAX_FAILED_IDS_IN_NOTES).join(', ')
-	const more = ids.length > MAX_FAILED_IDS_IN_NOTES ? ` e mais ${ids.length - MAX_FAILED_IDS_IN_NOTES}` : ''
+const listNote = (label: string, ids: string[]): string => {
+	const shown = ids.slice(0, MAX_IDS_IN_NOTES).join(', ')
+	const more = ids.length > MAX_IDS_IN_NOTES ? ` e mais ${ids.length - MAX_IDS_IN_NOTES}` : ''
 
-	return `${ids.length} ${label} (de novo na próxima carga): ${shown}${more}`
+	return `${ids.length} ${label}: ${shown}${more}`
 }
 
-/** Pedido mudou se a lista não traz lastChange, se não há detalhe gravado ou se o lastChange é diferente. */
+/**
+ * Pedido mudou se a lista não traz lastChange (ou traz num formato ilegível), se não há detalhe gravado ou se o
+ * lastChange é diferente do gravado.
+ */
 const hasChanged = (order: tListOrder, stored: ReadonlyMap<string, string>): boolean => {
-	const listed = toComparableUtc(order.lastChange)
+	try {
+		const listed = toComparableUtc(order.lastChange)
 
-	return listed === null || stored.get(order.orderId) !== listed
+		return listed === null || stored.get(order.orderId) !== listed
+	} catch {
+		return true
+	}
 }
 
 const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOrders> => {
@@ -76,7 +86,6 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 	const to = ctx.options.to ?? new Date()
 	const from = ctx.options.from ?? new Date(to.getTime() - DEFAULT_WINDOW_DAYS * MS_PER_DAY)
 	const { orders: listed, stats } = await listOrdersInWindow(api, { from, to })
-
 	const listedIds = listed.map(order => order.orderId)
 	// Dry-run não abre conexão: sem o gravado, tudo conta como mudado.
 	const readDatabase = !ctx.options.dryRun
@@ -86,6 +95,7 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 			? await readStoredSellerNames(ctx.database, listedIds)
 			: new Map<string, string | null>()
 	const changed = listed.filter(order => hasChanged(order, stored))
+	const withoutLastChange = listed.filter(order => !order.lastChange).length
 
 	ctx.logger.info(
 		{ listed: listed.length, changed: changed.length, windows: stats.windows, pages: stats.pages },
@@ -98,6 +108,7 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 	)
 	const details: tOrderDetail[] = []
 	const failedIds: string[] = []
+	const transportFailures: unknown[] = []
 
 	settled.forEach((result, index) => {
 		const orderId = changed[index]?.orderId ?? '?'
@@ -109,14 +120,16 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 		}
 
 		failedIds.push(orderId)
+
+		if (isTransportFailure(result.reason)) transportFailures.push(result.reason)
+
 		ctx.logger.warn({ orderId, reason: errorMessage(result.reason) }, 'Detalhe do pedido falhou')
 	})
 
-	if (changed.length > 0 && details.length === 0) {
-		const first = settled.find(result => result.status === 'rejected')
-
+	// Todos falharam por HTTP/rede: credencial, permissão ou API fora do ar. Pedido ruim sozinho não derruba a carga.
+	if (changed.length > 0 && details.length === 0 && transportFailures.length > 0) {
 		throw new AppError(
-			`Nenhum detalhe de pedido obtido (${failedIds.length} falhas). Primeiro erro: ${errorMessage(first?.status === 'rejected' ? first.reason : undefined)}`
+			`Nenhum detalhe de pedido obtido (${failedIds.length} falhas). Primeiro erro: ${errorMessage(transportFailures[0])}`
 		)
 	}
 
@@ -127,7 +140,18 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 
 	if (ctx.options.dryRun) notes.push('dry-run: sem leitura do banco, todos os pedidos contam como mudados')
 
-	if (failedIds.length > 0) notes.push(failedIdsNote('detalhe(s) com falha na API', failedIds))
+	// Sem lastChange na lista, todo pedido da janela é "mudado" e o detalhe de todos é buscado a cada carga.
+	if (withoutLastChange * 2 > listed.length) {
+		ctx.logger.warn(
+			{ withoutLastChange, listed: listed.length },
+			'Lista do OMS sem lastChange na maioria dos pedidos'
+		)
+		notes.push(
+			`${withoutLastChange} de ${listed.length} pedido(s) sem lastChange na lista: detalhe de todos buscado`
+		)
+	}
+
+	if (failedIds.length > 0) notes.push(listNote('detalhe(s) com falha (de novo na próxima carga)', failedIds))
 
 	return { listed, details, hostnameFallback: accountOf(brand) ?? null, storedSellerNames, notes }
 }
@@ -156,6 +180,27 @@ const latestProfiles = (profiles: (tRow | null)[]): tRow[] => {
 	}
 
 	return [...byId.values()]
+}
+
+/**
+ * Itens cujo uniqueid já está gravado em OUTRO pedido, fora desta carga: o upsert vai mudá-los de pedido. Só conta e
+ * lista "uniqueid: pedido antigo → novo" para as notas (paridade); a regra de quem fica com o item está no topo.
+ */
+const movedItems = async (ctx: iJobContext, itemRows: tRow[], detailIds: ReadonlySet<string>): Promise<string[]> => {
+	if (ctx.options.dryRun || itemRows.length === 0) return []
+
+	const owners = await readStoredItemOwners(
+		ctx.database,
+		itemRows.map(row => String(row.uniqueid))
+	)
+
+	return itemRows.flatMap(row => {
+		const owner = owners.get(String(row.uniqueid))
+
+		if (!owner || detailIds.has(owner) || owner === row.order_id) return []
+
+		return [`${String(row.uniqueid)}: ${owner} → ${String(row.order_id)}`]
+	})
 }
 
 const run = async (ctx: iJobContext): Promise<iRunSummary> => {
@@ -203,33 +248,45 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const detailIds = transformed.map(({ detail }) => detail.orderId)
 	const profiles = latestProfiles(transformed.map(({ rows }) => rows.clientProfile))
 	const rowsOf = (table: tOrderChildTable) => transformed.flatMap(({ rows }) => rows.children[table])
+	const itemRows = rowsOf(ORDER_TABLES.items)
+	const moved = await movedItems(ctx, itemRows, new Set(detailIds))
 
-	const { results } = await ctx.writer.transaction(async tx => {
-		await tx.replaceByKeys(ORDER_TABLES.orders, 'order_id', orderIds, orderRows)
-		await tx.upsert(
-			ORDER_TABLES.details,
-			transformed.map(({ rows }) => rows.details),
-			{ keyColumns: ['order_id'] }
-		)
+	// O mysql2 põe o SQL com os valores (dado pessoal) no erro; o runner loga o erro inteiro. Sai só a mensagem.
+	const { results } = await ctx.writer
+		.transaction(async tx => {
+			await tx.replaceByKeys(ORDER_TABLES.orders, 'order_id', orderIds, orderRows)
+			await tx.upsert(
+				ORDER_TABLES.details,
+				transformed.map(({ rows }) => rows.details),
+				{ keyColumns: ['order_id'] }
+			)
 
-		for (const table of ORDER_CHILD_TABLES) {
-			if (table === ORDER_TABLES.items) continue
+			for (const table of ORDER_CHILD_TABLES) {
+				if (table === ORDER_TABLES.items) continue
 
-			await tx.replaceByKeys(table, 'order_id', detailIds, rowsOf(table))
-		}
+				await tx.replaceByKeys(table, 'order_id', detailIds, rowsOf(table))
+			}
 
-		await tx.replaceByKeys(ORDER_TABLES.items, 'order_id', detailIds, [])
-		await tx.upsert(ORDER_TABLES.items, rowsOf(ORDER_TABLES.items), { keyColumns: ['uniqueid'] })
-		await tx.upsert(ORDER_TABLES.clientProfile, profiles, { keyColumns: ['id'] })
-	})
+			await tx.replaceByKeys(ORDER_TABLES.items, 'order_id', detailIds, [])
+			await tx.upsert(ORDER_TABLES.items, itemRows, { keyColumns: ['uniqueid'] })
+			await tx.upsert(ORDER_TABLES.clientProfile, profiles, { keyColumns: ['id'] })
+		})
+		.catch(err => {
+			throw withoutSqlPayload(err)
+		})
 
 	const notes = [
 		...fetched.notes,
 		`${detailIds.length} detalhe(s) gravado(s), ${profiles.length} perfil(is) de cliente`
 	]
 
-	if (invalidIds.length > 0)
-		notes.push(failedIdsNote('pedido(s) fora do formato das colunas', [...new Set(invalidIds)]))
+	if (invalidIds.length > 0) {
+		notes.push(
+			listNote('pedido(s) fora do formato das colunas (de novo na próxima carga)', [...new Set(invalidIds)])
+		)
+	}
+
+	if (moved.length > 0) notes.push(listNote('item(ns) que mudaram de pedido (uniqueId repetido)', moved))
 
 	return { results, notes }
 }

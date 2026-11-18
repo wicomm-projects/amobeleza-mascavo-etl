@@ -2,11 +2,12 @@ import type { tRow } from '../../core/db/index.js'
 import { AppError } from '../../core/errors.js'
 
 import type { iCategoryNode, tProduct } from './schemas.js'
-import { flag, toText } from './values.js'
+import { flag, required, toText } from './values.js'
 
 /**
  * Transformações puras do catálogo → vtex_products, vtex_skus_and_products_id e vtex_category_tree, com a grafia do
- * dicionário (docs/contrato/mascavo_etl.md). Texto acima de 255 caracteres é cortado (colunas varchar(255)).
+ * dicionário (docs/contrato/mascavo_etl.md). Texto acima de 255 caracteres é cortado (colunas varchar(255)). Coluna NOT
+ * NULL sem valor lança (`required`): só aquele produto ou nó fica fora da carga.
  */
 
 /** vtex_products — PK id (ID do produto na VTEX). */
@@ -17,7 +18,7 @@ const toProductRow = (product: tProduct): tRow => ({
 	category_id: product.CategoryId,
 	brand_id: product.BrandId,
 	link_id: toText(product.LinkId),
-	ref_id: toText(product.RefId),
+	ref_id: toText(required(product.RefId, `produto ${product.Id} ref_id`)),
 	is_visible: flag(product.IsVisible),
 	description: toText(product.Description),
 	description_short: toText(product.DescriptionShort),
@@ -58,27 +59,35 @@ const productIdOf = (key: string): number => {
  * - Departamento (raiz): `department` nulo e `sub_category_id` 0 ("0 quando é nó raiz", dicionário).
  * - Categoria abaixo dele: `department` = nome do departamento e `sub_category_id` = ID da categoria na VTEX.
  * A regra exata do ETL antigo para `department` e `sub_category_id` não está documentada: confirmar na paridade.
+ * Nó sem título ou meta description (NOT NULL) fica de fora, com o ID em `skippedIds`; os filhos dele seguem.
  */
-const toCategoryTreeRows = (tree: readonly iCategoryNode[]): tRow[] => {
+const toCategoryTreeRows = (tree: readonly iCategoryNode[]): { rows: tRow[]; skippedIds: number[] } => {
 	const rows: tRow[] = []
+	const skippedIds: number[] = []
 
 	const visit = (node: iCategoryNode, department: string | null) => {
-		rows.push({
-			name: toText(node.name),
-			department: department === null ? null : toText(department),
-			has_children: flag(node.hasChildren),
-			url: toText(node.url),
-			title: toText(node.Title),
-			meta_tag_description: toText(node.MetaTagDescription),
-			sub_category_id: department === null ? 0 : node.id
-		})
+		try {
+			rows.push({
+				name: toText(node.name),
+				department: department === null ? null : toText(department),
+				has_children: flag(node.hasChildren),
+				url: toText(node.url),
+				title: toText(required(node.Title, `categoria ${node.id} title`)),
+				meta_tag_description: toText(
+					required(node.MetaTagDescription, `categoria ${node.id} meta_tag_description`)
+				),
+				sub_category_id: department === null ? 0 : node.id
+			})
+		} catch {
+			skippedIds.push(node.id)
+		}
 
 		node.children.forEach(child => visit(child, department ?? node.name))
 	}
 
 	tree.forEach(root => visit(root, null))
 
-	return rows
+	return { rows, skippedIds }
 }
 
 export { productIdOf, toCategoryTreeRows, toProductRow, toSkusAndProductsRows }

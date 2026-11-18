@@ -2,15 +2,16 @@ import type { tRow } from '../../core/db/index.js'
 
 import type { tListOrder, tOrderDetail } from './schemas.js'
 import { ORDER_TABLES, type tOrderChildTable } from './tables.js'
-import { flag, toInt, toJson, toText, toUtcDate } from './values.js'
+import { flag, required, toInt, toJson, toText, toUtcDate } from './values.js'
 
 /**
  * Transformações puras: resposta da VTEX → linhas das tabelas antigas, com a grafia exata do dicionário
  * (docs/contrato/mascavo_etl.md). Sem I/O, sem relógio: a mesma entrada dá sempre a mesma saída.
  *
  * Convenções (docs/contrato/convencoes.md): dinheiro em centavos como a VTEX manda; datas em UTC sem fração; status em
- * inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo — nada é inventado. As
- * colunas em que a VTEX pode mandar nulo e o dicionário diz "Não nulo" estão listadas em docs/conectores/vtex.md.
+ * inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo — nada é inventado. Em
+ * coluna NOT NULL, valor ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a
+ * transação inteira. As colunas relaxadas para NULL na DDL provisória estão em docs/conectores/vtex.md.
  *
  * Toda linha de uma tabela sai com as mesmas colunas (o writer exige).
  */
@@ -23,33 +24,43 @@ const TOTAL_IDS = { items: 'Items', discounts: 'Discounts', shipping: 'Shipping'
 const SALES_CHANNEL_LENGTH = 3
 const TYPE_LENGTH = 10
 
-/** vtex_orders — uma linha por pedido da LISTA do OMS. `hostnameFallback`: conta VTEX, quando a lista não traz. */
-const toOrderRow = (order: tListOrder, hostnameFallback: string | null): tRow => ({
-	order_id: order.orderId,
-	order_date: toUtcDate(order.creationDate),
-	total_value: order.totalValue,
-	status: order.status ?? null,
-	status_description: order.statusDescription ?? null,
-	market_place_order_id: order.marketPlaceOrderId ?? null,
-	sequence: order.sequence ?? null,
-	sales_channel: order.salesChannel ?? null,
-	affiliate_id: order.affiliateId ?? null,
-	origin: order.origin ?? null,
-	workflow_in_error_state: flag(order.workflowInErrorState),
-	workflow_in_retry: flag(order.workflowInRetry),
-	shipping_estimated_date: toUtcDate(order.ShippingEstimatedDate),
-	shipping_estimated_date_max: toUtcDate(order.ShippingEstimatedDateMax),
-	shipping_estimated_date_min: toUtcDate(order.ShippingEstimatedDateMin),
-	order_is_complete: flag(order.orderIsComplete),
-	authorized_date: toUtcDate(order.authorizedDate),
-	total_items: order.totalItems ?? null,
-	currency_code: order.currencyCode ?? null,
-	hostname: order.hostname ?? hostnameFallback,
-	last_change: toUtcDate(order.lastChange),
-	is_all_delivered: flag(order.isAllDelivered),
-	is_any_delivered: flag(order.isAnyDelivered),
-	ready_for_handling_date: toUtcDate(order.readyForHandlingDate)
-})
+/** Rótulo de erro "pedido coluna", para `required` (só ID e nome de coluna, nunca valor). */
+const columnOf = (orderId: string) => (column: string) => `${orderId} ${column}`
+
+/**
+ * vtex_orders — uma linha por pedido da LISTA do OMS. `hostnameFallback`: conta VTEX, quando a lista não traz.
+ * Coluna NOT NULL sem valor lança (`required`): o pedido fica fora desta carga e a linha antiga continua.
+ */
+const toOrderRow = (order: tListOrder, hostnameFallback: string | null): tRow => {
+	const column = columnOf(order.orderId)
+
+	return {
+		order_id: order.orderId,
+		order_date: required(toUtcDate(order.creationDate), column('order_date')),
+		total_value: order.totalValue,
+		status: order.status ?? null,
+		status_description: required(order.statusDescription, column('status_description')),
+		market_place_order_id: order.marketPlaceOrderId ?? null,
+		sequence: required(order.sequence, column('sequence')),
+		sales_channel: required(order.salesChannel, column('sales_channel')),
+		affiliate_id: order.affiliateId ?? null,
+		origin: required(order.origin, column('origin')),
+		workflow_in_error_state: required(flag(order.workflowInErrorState), column('workflow_in_error_state')),
+		workflow_in_retry: required(flag(order.workflowInRetry), column('workflow_in_retry')),
+		shipping_estimated_date: toUtcDate(order.ShippingEstimatedDate),
+		shipping_estimated_date_max: toUtcDate(order.ShippingEstimatedDateMax),
+		shipping_estimated_date_min: toUtcDate(order.ShippingEstimatedDateMin),
+		order_is_complete: required(flag(order.orderIsComplete), column('order_is_complete')),
+		authorized_date: toUtcDate(order.authorizedDate),
+		total_items: required(order.totalItems, column('total_items')),
+		currency_code: required(order.currencyCode, column('currency_code')),
+		hostname: required(order.hostname ?? hostnameFallback, column('hostname')),
+		last_change: toUtcDate(order.lastChange),
+		is_all_delivered: flag(order.isAllDelivered),
+		is_any_delivered: flag(order.isAnyDelivered),
+		ready_for_handling_date: toUtcDate(order.readyForHandlingDate)
+	}
+}
 
 /** Seller "1" é a própria loja na VTEX. */
 const MAIN_SELLER_ID = '1'
@@ -77,42 +88,46 @@ const openText = (value: unknown): string | null => {
 }
 
 /** vtex_order_details — PK order_id, 1:1 com vtex_orders. */
-const toDetailRow = (detail: tOrderDetail): tRow => ({
-	order_id: detail.orderId,
-	sequence: detail.sequence,
-	client_profile_id: detail.clientProfileData?.userProfileId ?? null,
-	marketplace_order_id: detail.marketplaceOrderId ?? null,
-	marketplace_services_endpoint: toText(detail.marketplaceServicesEndpoint),
-	seller_order_id: detail.sellerOrderId ?? null,
-	origin: detail.origin,
-	affiliate_id: detail.affiliateId ?? null,
-	sales_channel: toText(detail.salesChannel, SALES_CHANNEL_LENGTH),
-	merchant_name: detail.merchantName ?? null,
-	status: detail.status,
-	status_description: detail.statusDescription ?? null,
-	value: detail.value,
-	creation_date: toUtcDate(detail.creationDate),
-	last_change: toUtcDate(detail.lastChange),
-	order_group: detail.orderGroup ?? detail.orderId.replace(ORDER_SUFFIX, ''),
-	totals_items: totalOf(detail, TOTAL_IDS.items),
-	totals_discounts: totalOf(detail, TOTAL_IDS.discounts),
-	totals_shipping: totalOf(detail, TOTAL_IDS.shipping),
-	totals_taxes: totalOf(detail, TOTAL_IDS.taxes),
-	followup_email: detail.followUpEmail ?? null,
-	hostname: detail.hostname,
-	opentextfield: openText(detail.openTextField),
-	roundingerror: detail.roundingError ?? null,
-	orderformid: detail.orderFormId ?? null,
-	commercialconditiondata: toJson(detail.commercialConditionData),
-	iscompleted: flag(detail.isCompleted),
-	allowcancellation: flag(detail.allowCancellation),
-	allowedition: flag(detail.allowEdition),
-	ischeckedin: flag(detail.isCheckedIn),
-	utm_source: detail.marketingData?.utmSource ?? null,
-	coupon: detail.marketingData?.coupon ?? null,
-	authorizeddate: toUtcDate(detail.authorizedDate),
-	invoiceddate: toUtcDate(detail.invoicedDate)
-})
+const toDetailRow = (detail: tOrderDetail): tRow => {
+	const column = columnOf(detail.orderId)
+
+	return {
+		order_id: detail.orderId,
+		sequence: detail.sequence,
+		client_profile_id: detail.clientProfileData?.userProfileId ?? null,
+		marketplace_order_id: detail.marketplaceOrderId ?? null,
+		marketplace_services_endpoint: toText(detail.marketplaceServicesEndpoint),
+		seller_order_id: detail.sellerOrderId ?? null,
+		origin: detail.origin,
+		affiliate_id: detail.affiliateId ?? null,
+		sales_channel: toText(detail.salesChannel, SALES_CHANNEL_LENGTH),
+		merchant_name: detail.merchantName ?? null,
+		status: detail.status,
+		status_description: required(detail.statusDescription, column('status_description')),
+		value: detail.value,
+		creation_date: required(toUtcDate(detail.creationDate), column('creation_date')),
+		last_change: required(toUtcDate(detail.lastChange), column('last_change')),
+		order_group: detail.orderGroup ?? detail.orderId.replace(ORDER_SUFFIX, ''),
+		totals_items: totalOf(detail, TOTAL_IDS.items),
+		totals_discounts: totalOf(detail, TOTAL_IDS.discounts),
+		totals_shipping: totalOf(detail, TOTAL_IDS.shipping),
+		totals_taxes: totalOf(detail, TOTAL_IDS.taxes),
+		followup_email: required(detail.followUpEmail, column('followup_email')),
+		hostname: detail.hostname,
+		opentextfield: openText(detail.openTextField),
+		roundingerror: required(detail.roundingError, column('roundingerror')),
+		orderformid: detail.orderFormId ?? null,
+		commercialconditiondata: toJson(detail.commercialConditionData),
+		iscompleted: flag(detail.isCompleted),
+		allowcancellation: flag(detail.allowCancellation),
+		allowedition: flag(detail.allowEdition),
+		ischeckedin: flag(detail.isCheckedIn),
+		utm_source: detail.marketingData?.utmSource ?? null,
+		coupon: detail.marketingData?.coupon ?? null,
+		authorizeddate: toUtcDate(detail.authorizedDate),
+		invoiceddate: toUtcDate(detail.invoicedDate)
+	}
+}
 
 const toItemRows = (detail: tOrderDetail): tRow[] =>
 	(detail.items ?? []).map((item, index) => {
@@ -121,12 +136,12 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 		return {
 			order_id: detail.orderId,
 			uniqueid: item.uniqueId,
-			id: toInt(item.id, field('id')),
-			productid: toInt(item.productId, field('productId')),
+			id: required(toInt(item.id, field('id')), field('id')),
+			productid: required(toInt(item.productId, field('productid')), field('productid')),
 			ean: item.ean ?? null,
 			lockid: item.lockId ?? null,
 			quantity: item.quantity,
-			seller: toInt(item.seller, field('seller')),
+			seller: required(toInt(item.seller, field('seller')), field('seller')),
 			name: toText(item.name),
 			refid: item.refId ?? null,
 			price: item.price,
@@ -134,18 +149,18 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			manualprice: item.manualPrice ?? null,
 			imageurl: toText(item.imageUrl),
 			detailurl: toText(item.detailUrl),
-			sellersku: item.sellerSku ?? null,
-			commission: item.commission ?? null,
-			tax: item.tax ?? null,
+			sellersku: required(item.sellerSku, field('sellersku')),
+			commission: required(item.commission, field('commission')),
+			tax: required(item.tax, field('tax')),
 			presaledate: toUtcDate(item.preSaleDate),
 			additionalinfo: JSON.stringify(item.additionalInfo ?? null),
-			measurementunit: item.measurementUnit ?? null,
-			unitmultiplier: item.unitMultiplier ?? null,
-			sellingprice: item.sellingPrice ?? null,
-			isgift: flag(item.isGift),
+			measurementunit: required(item.measurementUnit, field('measurementunit')),
+			unitmultiplier: required(item.unitMultiplier, field('unitmultiplier')),
+			sellingprice: required(item.sellingPrice, field('sellingprice')),
+			isgift: required(flag(item.isGift), field('isgift')),
 			shippingprice: item.shippingPrice ?? null,
-			rewardvalue: item.rewardValue ?? null,
-			freightcommission: item.freightCommission ?? null,
+			rewardvalue: required(item.rewardValue, field('rewardvalue')),
+			freightcommission: required(item.freightCommission, field('freightcommission')),
 			taxcode: item.taxCode ?? null,
 			costprice: item.costPrice ?? null
 		}
@@ -222,7 +237,7 @@ const toPaymentRows = (detail: tOrderDetail): tRow[] =>
 	transactionsOf(detail).flatMap(transaction =>
 		(transaction.payments ?? []).map(payment => ({
 			order_id: detail.orderId,
-			transaction_id: transaction.transactionId ?? null,
+			transaction_id: required(transaction.transactionId, `${detail.orderId} payment transaction_id`),
 			payment_id: payment.id,
 			payment_system: toText(payment.paymentSystem),
 			payment_system_name: payment.paymentSystemName,

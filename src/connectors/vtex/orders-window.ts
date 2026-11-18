@@ -32,13 +32,17 @@ interface iListStats {
 const creationDateFilter = ({ from, to }: iWindow): string =>
 	`creationDate:[${from.toISOString()} TO ${to.toISOString()}]`
 
-/** Duas metades sem sobreposição: [from, meio] e [meio + 1 ms, to] (o filtro é inclusivo nas duas pontas). */
+/**
+ * Duas metades que se tocam no meio: [from, meio] e [meio, to]. A VTEX guarda creationDate com até 7 casas decimais;
+ * com [meio + 1 ms, to], um pedido entre meio e meio + 1 ms não cairia em nenhuma. O pedido exatamente no meio vem nas
+ * duas e o mapa por orderId tira a repetição.
+ */
 const splitWindow = ({ from, to }: iWindow): [iWindow, iWindow] => {
 	const middle = new Date(from.getTime() + Math.floor((to.getTime() - from.getTime()) / 2))
 
 	return [
 		{ from, to: middle },
-		{ from: new Date(middle.getTime() + 1), to }
+		{ from: middle, to }
 	]
 }
 

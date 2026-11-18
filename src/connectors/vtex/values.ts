@@ -13,6 +13,7 @@ import { AppError } from '../../core/errors.js'
 const ISO_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/
 
 const MS_PER_MINUTE = 60_000
+const MIN_YEAR = 1000
 
 /** Colunas varchar(255) do dicionário. */
 const VARCHAR_DEFAULT_LENGTH = 255
@@ -37,6 +38,10 @@ const toUtcDate = (value: string | null | undefined): Date | null => {
 	if (!match) throw new AppError(`Data em formato inesperado: ${value}`)
 
 	const [, year, month, day, hour, minute, second, zone] = match
+
+	// Date.UTC soma 1900 a ano entre 0 e 99: "0001-01-01" viraria 1901 em silêncio.
+	if (Number(year) < MIN_YEAR) throw new AppError(`Data fora do intervalo esperado: ${value}`)
+
 	const utcMs =
 		Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)) -
 		offsetMinutes(zone) * MS_PER_MINUTE
@@ -78,6 +83,16 @@ const toInt = (value: number | string | null | undefined, field: string): number
 	return parsed
 }
 
+/**
+ * Valor de coluna NOT NULL. Vazio lança: a transformação tira só aquele pedido/produto da carga, em vez de o MySQL
+ * recusar o INSERT e derrubar a transação inteira (e de novo a cada carga, enquanto o registro estiver na janela).
+ */
+const required = <T>(value: T | null | undefined, label: string): T => {
+	if (value === null || value === undefined) throw new AppError(`${label}: veio vazio, mas a coluna é NOT NULL`)
+
+	return value
+}
+
 const toJson = (value: unknown): string | null => (value === null || value === undefined ? null : JSON.stringify(value))
 
 /**
@@ -94,4 +109,4 @@ const toText = (value: unknown, maxLength: number = VARCHAR_DEFAULT_LENGTH): str
 	return text.length > maxLength ? text.slice(0, maxLength) : text
 }
 
-export { flag, toComparableUtc, toInt, toJson, toText, toUtcDate, VARCHAR_DEFAULT_LENGTH }
+export { flag, required, toComparableUtc, toInt, toJson, toText, toUtcDate, VARCHAR_DEFAULT_LENGTH }

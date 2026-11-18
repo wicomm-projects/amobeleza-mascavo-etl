@@ -1,9 +1,11 @@
 import { getBrandConfig, getEnv, type tBrand, type tDatabase } from '../../config/index.js'
 import { runWithConcurrency } from '../../core/concurrency.js'
+import type { tRow } from '../../core/db/index.js'
 import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunSummary } from '../../core/jobs/types.js'
 
 import { createBrandApi, type iVtexApi } from './client.js'
+import { isTransportFailure, withoutSqlPayload } from './errors.js'
 import { loadCatalogFixture } from './fixtures.js'
 import type { iCategoryNode, tProduct, tProductAndSkuIds } from './schemas.js'
 import { CATALOG_TABLES } from './tables.js'
@@ -16,7 +18,9 @@ import { productIdOf, toCategoryTreeRows, toProductRow, toSkusAndProductsRows } 
  * 2. Cadastro de cada produto → vtex_products (upsert por id; produto que sumiu do catálogo continua na tabela).
  * 3. Árvore de categorias → vtex_category_tree (replaceAll).
  *
- * replaceAll recusa lote vazio: catálogo vazio vindo da API derruba a carga em vez de apagar as tabelas.
+ * replaceAll recusa lote vazio: catálogo vazio vindo da API derruba a carga em vez de apagar as tabelas. Página vazia
+ * no meio do mapa também derruba (senão o replaceAll apagaria parte dele). Produto ou categoria fora do formato das
+ * colunas fica de fora com nota; a carga só falha inteira se todos os cadastros falharem por HTTP/rede.
  */
 
 /** Teto de _to - _from em GetProductAndSkuIds (doc da VTEX). */
@@ -27,7 +31,7 @@ const MAX_PRODUCT_IDS_PAGES = 400
 const CATEGORY_TREE_LEVELS = 3
 /** 1x por dia, 05:15 (fuso de São Paulo, no agendador). */
 const SCHEDULE_DAILY = '15 5 * * *'
-const MAX_FAILED_IDS_IN_NOTES = 10
+const MAX_IDS_IN_NOTES = 10
 
 interface iCatalogData {
 	skusByProduct: Map<number, number[]>
@@ -46,6 +50,13 @@ const databaseOf = (brand?: tBrand): tDatabase => getBrandConfig(requireBrand(br
 
 const errorMessage = (reason: unknown): string => (reason instanceof Error ? reason.message : String(reason))
 
+/** Até 10 IDs para as notas (o log tem todos). */
+const shortList = (ids: number[]): string => {
+	const more = ids.length > MAX_IDS_IN_NOTES ? ` e mais ${ids.length - MAX_IDS_IN_NOTES}` : ''
+
+	return `${ids.slice(0, MAX_IDS_IN_NOTES).join(', ')}${more}`
+}
+
 const addSkus = (target: Map<number, number[]>, page: tProductAndSkuIds): number => {
 	const entries = Object.entries(page.data)
 
@@ -54,6 +65,10 @@ const addSkus = (target: Map<number, number[]>, page: tProductAndSkuIds): number
 	return entries.length
 }
 
+/**
+ * Mapa produto → SKUs inteiro, de 250 em 250. Página vazia antes do `range.total`, ou o teto de páginas, lança: o
+ * replaceAll seguinte apagaria da tabela os produtos que não chegaram a ser lidos.
+ */
 const listProductAndSkuIds = async (api: Pick<iVtexApi, 'getProductAndSkuIds'>): Promise<Map<number, number[]>> => {
 	const skusByProduct = new Map<number, number[]>()
 	let from = 1
@@ -65,9 +80,21 @@ const listProductAndSkuIds = async (api: Pick<iVtexApi, 'getProductAndSkuIds'>):
 
 		total = response.range.total
 
-		if (addSkus(skusByProduct, response) === 0) break
+		if (addSkus(skusByProduct, response) === 0) {
+			if (from <= total) {
+				throw new AppError(
+					`GetProductAndSkuIds: página ${from}-${to} veio vazia antes do total (${total}); o mapa ficaria incompleto.`
+				)
+			}
+
+			break
+		}
 
 		from = to + 1
+	}
+
+	if (from <= total) {
+		throw new AppError(`GetProductAndSkuIds: mais de ${MAX_PRODUCT_IDS_PAGES} páginas (total ${total}); confira.`)
 	}
 
 	return skusByProduct
@@ -83,6 +110,7 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iCatalogDa
 	)
 	const products: tProduct[] = []
 	const failedIds: number[] = []
+	const transportFailures: unknown[] = []
 
 	settled.forEach((result, index) => {
 		if (result.status === 'fulfilled') {
@@ -94,20 +122,24 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iCatalogDa
 		const productId = productIds[index] ?? 0
 
 		failedIds.push(productId)
+
+		if (isTransportFailure(result.reason)) transportFailures.push(result.reason)
+
 		ctx.logger.warn({ productId, reason: errorMessage(result.reason) }, 'Cadastro do produto falhou')
 	})
 
-	if (productIds.length > 0 && products.length === 0) {
-		throw new AppError(`Nenhum cadastro de produto obtido (${failedIds.length} falhas).`)
+	// Todos falharam por HTTP/rede: credencial, permissão ou API fora do ar.
+	if (productIds.length > 0 && products.length === 0 && transportFailures.length > 0) {
+		throw new AppError(
+			`Nenhum cadastro de produto obtido (${failedIds.length} falhas). Primeiro erro: ${errorMessage(transportFailures[0])}`
+		)
 	}
 
 	const tree = await api.getCategoryTree(CATEGORY_TREE_LEVELS)
 	const notes = [`${productIds.length} produto(s) no catálogo, ${products.length} cadastro(s) lido(s)`]
 
 	if (failedIds.length > 0) {
-		const shown = failedIds.slice(0, MAX_FAILED_IDS_IN_NOTES).join(', ')
-
-		notes.push(`${failedIds.length} cadastro(s) com falha (mantidos como estavam): ${shown}`)
+		notes.push(`${failedIds.length} cadastro(s) com falha (mantidos como estavam): ${shortList(failedIds)}`)
 	}
 
 	return { skusByProduct, products, tree, notes }
@@ -130,17 +162,47 @@ const fetchFromFixture = async (file: string): Promise<iCatalogData> => {
 const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const brand = requireBrand(ctx.brand)
 	const data = ctx.options.fixture ? await fetchFromFixture(ctx.options.fixture) : await fetchFromApi(ctx, brand)
-	const productRows = data.products.map(toProductRow)
+	// Produto fora do formato das colunas (ex.: sem RefId, NOT NULL) fica de fora; a linha antiga dele continua.
+	const productRows: tRow[] = []
+	const invalidProductIds: number[] = []
+
+	for (const product of data.products) {
+		try {
+			productRows.push(toProductRow(product))
+		} catch (err) {
+			invalidProductIds.push(product.Id)
+			ctx.logger.warn({ productId: product.Id, reason: errorMessage(err) }, 'Produto fora do formato das colunas')
+		}
+	}
+
 	const skuRows = toSkusAndProductsRows(data.skusByProduct)
-	const treeRows = toCategoryTreeRows(data.tree)
+	const tree = toCategoryTreeRows(data.tree)
 
-	const { results } = await ctx.writer.transaction(async tx => {
-		await tx.upsert(CATALOG_TABLES.products, productRows, { keyColumns: ['id'] })
-		await tx.replaceAll(CATALOG_TABLES.skusAndProducts, skuRows)
-		await tx.replaceAll(CATALOG_TABLES.categoryTree, treeRows)
-	})
+	const { results } = await ctx.writer
+		.transaction(async tx => {
+			await tx.upsert(CATALOG_TABLES.products, productRows, { keyColumns: ['id'] })
+			await tx.replaceAll(CATALOG_TABLES.skusAndProducts, skuRows)
+			await tx.replaceAll(CATALOG_TABLES.categoryTree, tree.rows)
+		})
+		.catch(err => {
+			throw withoutSqlPayload(err)
+		})
 
-	return { results, notes: [...data.notes, `${treeRows.length} nó(s) na árvore de categorias`] }
+	const notes = [...data.notes, `${tree.rows.length} nó(s) na árvore de categorias`]
+
+	if (invalidProductIds.length > 0) {
+		notes.push(
+			`${invalidProductIds.length} produto(s) fora do formato (mantidos como estavam): ${shortList(invalidProductIds)}`
+		)
+	}
+
+	if (tree.skippedIds.length > 0) {
+		notes.push(
+			`${tree.skippedIds.length} categoria(s) sem título ou meta description, fora da árvore: ${shortList(tree.skippedIds)}`
+		)
+	}
+
+	return { results, notes }
 }
 
 const catalogJob: iJob = {

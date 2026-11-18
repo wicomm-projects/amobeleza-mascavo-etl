@@ -30,7 +30,8 @@ estão no escopo da fase 1. _Assumido, a confirmar._
 ## API usada (só leitura)
 
 Cliente: `createGetClient` do núcleo (só GET, só caminho relativo, sem redirect, retentativa em 429/5xx). Base
-`https://{account}.{environment}.com.br` — conta e ambiente só aceitam letras, números e hífen. Headers
+`https://{account}.{environment}.com.br` — a conta só aceita letras, números e hífen, e o ambiente só
+`vtexcommercestable` ou `vtexcommercebeta` (as chaves nunca vão para outro host). Headers
 `X-VTEX-API-AppKey` / `X-VTEX-API-AppToken`. Toda resposta passa por um schema zod (`schemas.ts`) antes de seguir.
 
 | Chamada                                                    | Uso                                | Limites (doc oficial)                                           |
@@ -56,16 +57,20 @@ doc — conferir ao criar a chave. Nenhum recurso de escrita.
 1. **Janela:** padrão últimos 45 dias até agora; `--from`/`--to` mudam. Carga retroativa (a ingestão antiga parou em
    05/10/2026): `npm run etl -- run vtex-orders --brand mascavo --from 2026-10-05`.
 2. **Lista** (`orders-window.ts`): página 1 com 100 por página; se o total passa de 3.000, a janela é dividida ao meio,
-   recursivamente, em pedaços sem sobreposição (`[início, meio]` e `[meio + 1 ms, fim]`); senão lê as páginas 2..N
-   (no máximo 30). Pedido repetido entre páginas entra uma vez. Mais de 3.000 pedidos em menos de 1 minuto é tratado
-   como filtro quebrado e a carga falha.
+   recursivamente (`[início, meio]` e `[meio, fim]`: as metades se tocam no meio, porque a VTEX guarda a data com até
+   7 casas decimais e uma fresta de 1 ms perderia pedido); senão lê as páginas 2..N (no máximo 30). Pedido repetido
+   entre páginas ou metades entra uma vez. Mais de 3.000 pedidos em menos de 1 minuto é tratado como filtro quebrado e
+   a carga falha.
 3. **O que mudou** (`stored.ts`): lê no banco de destino (Docker local, conexão protegida do núcleo) o `last_change` de
    `vtex_order_details` dos pedidos listados. Busca o detalhe só de quem não tem detalhe gravado ou tem `lastChange`
-   diferente (comparado em UTC, ao segundo). A base é `vtex_order_details`, não `vtex_orders`: um detalhe que falhou
-   numa carga é buscado de novo na próxima.
-4. **Detalhes** em paralelo (`HTTP_CONCURRENCY`). Detalhe que falha (rede, 5xx, resposta fora do schema) ou que não
-   cabe nas colunas (ex.: `seller` não numérico) fica de fora desta carga, com o ID nas notas do resumo, e volta na
-   próxima. Se **todos** falharem, a carga falha (credencial ou API fora do ar).
+   diferente ou ilegível (comparado em UTC, ao segundo). A base é `vtex_order_details`, não `vtex_orders`: um detalhe
+   que falhou numa carga é buscado de novo na próxima. Se a maioria dos pedidos vier sem `lastChange`, a carga avisa
+   (log e nota): nesse caso o detalhe de todos é buscado a cada 30 min.
+4. **Detalhes** em paralelo (`HTTP_CONCURRENCY`). **Isolamento por pedido:** detalhe que falha (rede, 5xx, resposta
+   fora do schema) ou que não cabe nas colunas (coluna NOT NULL vazia, `seller` não numérico) fica de fora desta carga,
+   com o ID nas notas do resumo, e volta na próxima; o mesmo vale para um pedido da lista. Assim um pedido ruim não
+   derruba a transação de todos. A carga só falha inteira se **todos** os detalhes falharem por HTTP/rede (credencial,
+   permissão ou API fora do ar).
 5. **Gravação** numa transação:
     - `vtex_orders`: `replaceByKeys` por `order_id`, com **todos** os pedidos listados (vêm da lista do OMS).
     - `vtex_order_details`: `upsert` (PK `order_id`).
@@ -73,8 +78,14 @@ doc — conferir ao criar a chave. Nenhum recurso de escrita.
       `rates`): `replaceByKeys` por `order_id` dos detalhes obtidos (item removido some).
     - `vtex_order_items` (PK `uniqueid`): apaga os itens dos pedidos regravados e faz `upsert` por `uniqueid`. O mesmo
       `uniqueId` pode reaparecer em outro pedido (pedido incompleto refeito do mesmo carrinho); com INSERT puro a
-      chave duplicada derrubaria todas as cargas. Fica com o item o pedido alterado por último.
+      chave duplicada derrubaria todas as cargas. Fica com o item o pedido alterado por último; cada troca aparece nas
+      notas ("uniqueid: pedido antigo → novo"), para conferir na paridade.
     - `vtex_client_profile`: `upsert` (PK `id`), um perfil por cliente, o do pedido alterado por último.
+
+**Erro de gravação sem dado pessoal:** o mysql2 anexa ao erro o SQL com os valores (nomes, e-mails, endereços) e o
+runner loga o erro inteiro. Os dois jobs refazem o erro só com o código e a mensagem do MySQL, sem `cause`, e omitem os
+valores citados ("Duplicate entry '[omitido]'"). A proteção definitiva é no núcleo (incluir `err.sql` no `redact` do
+logger) — pendência abaixo, porque mexe fora da pasta do conector.
 
 **Dry-run** não abre conexão: sem o `last_change` gravado, todo pedido conta como mudado e o detalhe de todos é
 buscado. Use janela curta (`--from`/`--to`).
@@ -84,6 +95,11 @@ buscado. Use janela curta (`--from`/`--to`).
 GetProductAndSkuIds de 250 em 250 até o `range.total` → `vtex_skus_and_products_id` (`replaceAll`); cadastro de cada
 produto → `vtex_products` (`upsert`, produto que sai do catálogo fica); árvore de 3 níveis → `vtex_category_tree`
 (`replaceAll`). `replaceAll` recusa lote vazio: catálogo vazio vindo da API derruba a carga em vez de apagar as tabelas.
+Página vazia do GetProductAndSkuIds antes do `range.total` (ou mais de 400 páginas) também derruba a carga — senão o
+`replaceAll` apagaria do mapa os produtos que não chegaram a ser lidos. Produto fora do formato das colunas (ex.: sem
+`RefId`) ou categoria sem título/meta description fica de fora com nota; a carga só falha inteira se todos os cadastros
+falharem por HTTP/rede. _A conferir com a chave:_ se o `range.total` conta itens que a API não devolve, a última página
+vem vazia por desenho e essa regra precisa de margem.
 
 ## Mapa campo VTEX → coluna
 
@@ -194,6 +210,14 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
     - regra de `department`/`sub_category_id` e profundidade da árvore em `vtex_category_tree` (22 linhas na Mascavo);
     - `vtex_client_profile.type` (`cpf`/`cnpj` ou outro texto);
     - formato de booleano em `varchar` (`vtex_products.show_without_stock`);
-    - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio).
+    - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio);
+    - item que muda de pedido por `uniqueId` repetido: hoje fica com o pedido alterado por último; ver nas notas se
+      algum pedido cancelado "tomou" o item de um faturado e, se for o caso, desempatar a favor do não cancelado.
 4. `vtex_produto_categoria` (só Amobeleza): fora desta fase, ver "Diferenças entre os bancos".
-5. Testes de conector (vêm com as chaves): divisão de janela, comparação de `lastChange`, transformações.
+5. Núcleo (fora da pasta do conector, precisa de autorização): incluir `err.sql` / `*.sql` no `redact` do logger, para
+   nenhum conector vazar o SQL com valores num erro de gravação.
+6. Dado pessoal no Docker local: o `CLAUDE.md` diz "nada de dado de produção no Docker local" e o ADR de travas diz que
+   as cargas com chave gravam no Docker. A primeira carga real grava `vtex_client_profile`, `followup_email` e bairro/CEP
+   na máquina de quem rodar — decidir antes.
+7. Testes de conector (vêm com as chaves): divisão de janela (inclusive data com 7 casas decimais), comparação de
+   `lastChange`, transformações. Os testes de mesa desta fase (API falsa) não foram commitados.

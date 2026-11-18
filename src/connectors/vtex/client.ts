@@ -37,8 +37,11 @@ interface iVtexApi {
 	getCategoryTree: (levels: number) => Promise<iCategoryNode[]>
 }
 
-/** Conta e ambiente viram parte do host: só letras, números e hífen (barra "conta.outro-host.com/" vindo do .env). */
+/** Conta vira parte do host: só letras, números e hífen (barra "conta.outro-host.com/" vindo do .env). */
 const HOST_LABEL = /^[a-z0-9][a-z0-9-]{0,62}$/i
+
+/** Ambientes VTEX aceitos em `{account}.{environment}.com.br`. Qualquer outro valor no .env é recusado. */
+const VTEX_ENVIRONMENTS: ReadonlySet<string> = new Set(['vtexcommercestable', 'vtexcommercebeta'])
 
 /** IDs de pedido da VTEX: "1172452900788-01", "v502556llux-01", "GCB-123-01"... Nada de barra, "?" ou "..". */
 const ORDER_ID = /^[A-Za-z0-9_-]+$/
@@ -61,8 +64,12 @@ const createVtexHttp = (brand: tBrand): iGetClient => {
 
 	if (!credentials) throw new NotConfiguredError(`VTEX ${brand}: aguardando chave`)
 
-	if (!HOST_LABEL.test(credentials.account) || !HOST_LABEL.test(credentials.environment)) {
-		throw new SafetyError(`VTEX ${brand}: conta ou ambiente com caractere inválido para host`)
+	if (!HOST_LABEL.test(credentials.account)) {
+		throw new SafetyError(`VTEX ${brand}: conta com caractere inválido para host`)
+	}
+
+	if (!VTEX_ENVIRONMENTS.has(credentials.environment)) {
+		throw new SafetyError(`VTEX ${brand}: ambiente fora da lista (${[...VTEX_ENVIRONMENTS].join(', ')})`)
 	}
 
 	const env = getEnv()
