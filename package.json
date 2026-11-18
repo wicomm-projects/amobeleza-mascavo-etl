@@ -1,0 +1,51 @@
+{
+	"name": "amobeleza-mascavo-etl",
+	"version": "0.1.0",
+	"private": true,
+	"description": "ETL que alimenta os bancos MySQL amobeleza_etl e mascavo_etl (VTEX, GA4, AnyMarket) para os Power BI da Amobeleza e da Mascavo",
+	"type": "module",
+	"main": "dist/server.js",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"scripts": {
+		"dev": "tsx watch src/server.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"start": "node dist/server.js",
+		"etl": "tsx src/cli.ts",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"format": "prettier --write \"**/*.{js,mjs,ts}\"",
+		"format:check": "prettier --check \"**/*.{js,mjs,ts}\"",
+		"db:up": "docker compose up -d",
+		"db:down": "docker compose down"
+	},
+	"dependencies": {
+		"@google-analytics/data": "^7.3.0",
+		"axios": "^1.21.1",
+		"dotenv": "^18.0.10",
+		"express": "^5.3.0",
+		"mysql2": "^3.24.6",
+		"node-cron": "^4.6.0",
+		"pino": "^10.4.0",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@trivago/prettier-plugin-sort-imports": "^6.0.2",
+		"@types/express": "^5.0.6",
+		"@types/node": "^24.19.2",
+		"eslint": "^10.15.0",
+		"eslint-plugin-unused-imports": "^4.4.1",
+		"globals": "^17.14.0",
+		"pino-pretty": "^13.2.0",
+		"prettier": "^3.10.1",
+		"tsx": "^4.23.15",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.73.0",
+		"vitest": "^5.1.1"
+	}
+}

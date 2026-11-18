@@ -1,0 +1,27 @@
+# Modelo de serviço para a VPS. Só instalar depois da liberação de produção (docs/adr/2026-11-18-travas-de-escrita.md).
+# Copiar para /etc/systemd/system/ e ajustar o caminho do node (nvm) se necessário.
+[Unit]
+Description=ETL Amobeleza + Mascavo (status em 127.0.0.1:3000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=etl
+Group=etl
+WorkingDirectory=/home/etl/amobeleza-mascavo-etl
+EnvironmentFile=/home/etl/amobeleza-mascavo-etl/.env
+Environment=NODE_ENV=production
+ExecStart=/home/etl/.nvm/versions/node/v24/bin/node dist/server.js
+Restart=on-failure
+RestartSec=10
+
+# Endurecimento básico
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/etl/amobeleza-mascavo-etl/reports
+
+[Install]
+WantedBy=multi-user.target
