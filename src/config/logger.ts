@@ -25,7 +25,12 @@ const REDACT_PATHS = [
 	"*['x-vtex-api-appkey']",
 	"*['x-vtex-api-apptoken']",
 	'req.headers',
-	'res.headers'
+	'res.headers',
+	// Erro do mysql2 traz o SQL inteiro, com os valores (nomes, e-mails, documentos, endereços), em `err.sql`, e o
+	// serializer de erro do pino copia toda propriedade. Vale para o erro direto e para o que vem em `cause`.
+	'err.sql',
+	'*.sql',
+	'*.*.sql'
 ]
 
 let cachedLogger: Logger | null = null
@@ -63,4 +68,4 @@ const resetLoggerCache = () => {
 	cachedLogger = null
 }
 
-export { getLogger, resetLoggerCache }
+export { getLogger, REDACT_PATHS, resetLoggerCache }
