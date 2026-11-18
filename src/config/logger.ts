@@ -1,5 +1,7 @@
 import { type Logger, type LoggerOptions, pino } from 'pino'
 
+import { sanitizeErrorChain } from '../core/errors.js'
+
 import { getEnv } from './env.js'
 
 /**
@@ -25,8 +27,20 @@ const REDACT_PATHS = [
 	"*['x-vtex-api-appkey']",
 	"*['x-vtex-api-apptoken']",
 	'req.headers',
-	'res.headers'
+	'res.headers',
+	// Erro do mysql2: o SQL montado e a mensagem do servidor carregam valores (dado pessoal).
+	'*.sql',
+	'*.sqlMessage',
+	'err.cause.sql',
+	'err.cause.sqlMessage'
 ]
+
+/**
+ * Serializador de erro: erro do driver MySQL vira DatabaseError (só código e coluna) antes de ir para o log, inclusive
+ * quando está na cadeia de `cause` de outro erro. O redact
+ * acima é a segunda camada, para o caso de um erro do driver chegar embrulhado em outro objeto.
+ */
+const serializeError = (value: unknown) => pino.stdSerializers.err(sanitizeErrorChain(value) as Error)
 
 let cachedLogger: Logger | null = null
 
@@ -39,6 +53,7 @@ const getLogger = (): Logger => {
 		level: env.LOG_LEVEL,
 		base: { app: 'amobeleza-mascavo-etl' },
 		redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
+		serializers: { err: serializeError },
 		formatters: { level: label => ({ level: label }) },
 		timestamp: pino.stdTimeFunctions.isoTime
 	}
@@ -63,4 +78,4 @@ const resetLoggerCache = () => {
 	cachedLogger = null
 }
 
-export { getLogger, resetLoggerCache }
+export { REDACT_PATHS, getLogger, resetLoggerCache, serializeError }

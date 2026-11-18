@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise'
 
 import type { tDatabase } from '../../config/index.js'
-import { AppError, SafetyError } from '../errors.js'
+import { AppError, SafetyError, sanitizeDbError } from '../errors.js'
 
 import { affectedRowsOf, fromPool, type iConnectionSource, type iSqlConnection } from './connection.js'
 import { getTargetPool } from './pools.js'
@@ -369,7 +369,8 @@ const createWriter = (scope: iWriterScope, deps: iWriterDeps = {}): iWriter => {
 				return { value, results }
 			} catch (err) {
 				await connection.query('ROLLBACK').catch(() => undefined)
-				throw err
+				// Erro do driver leva o INSERT montado (dado pessoal): sobe só código e coluna.
+				throw sanitizeDbError(err)
 			}
 		} finally {
 			connection.release()
