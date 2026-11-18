@@ -59,7 +59,8 @@ carregue em janelas de ~1 mês (cota do GA4).
 - Primeiro lê **todos** os relatórios da marca (nenhuma chamada de rede com transação aberta); depois grava tudo numa
   transação só. Erro em qualquer tabela → ROLLBACK, o Power BI continua vendo o dado anterior.
 - Tabelas com data: `replaceDateWindow` (apaga a janela e insere). `category` (Mascavo) e `por_hora` (Amobeleza):
-  `replaceAll`.
+  `replaceAll`, sempre terminando **hoje** — mesmo numa carga retroativa com `--to` no passado, para não trocar o
+  conteúdo atual por dado velho.
 - **Relatório vazio não toca na tabela** (o writer recusa lote vazio: resposta vazia por falha apagaria dado) e vira
   aviso no resumo.
 - Paginação: 100.000 linhas por página, até 20 páginas por relatório; acima disso, o job para e pede janela menor. O
@@ -69,7 +70,7 @@ carregue em janelas de ~1 mês (cota do GA4).
 
 Aparecem no fim do `run` e no `/status`: De/Para faltando (lista das combinações origem/campanha sem regra), relatório
 vazio, linha `(other)` do GA4 (cardinalidade alta), limiares de privacidade, amostragem, fuso da propriedade diferente
-de São Paulo, texto cortado em 255 caracteres e linhas juntadas por diferença só de maiúscula/acento.
+de São Paulo, moeda diferente de BRL, texto cortado em 255 caracteres e linhas juntadas por diferença só de maiúscula/acento.
 
 ### Por que juntar linhas
 
@@ -139,6 +140,8 @@ histórico. Formato de `de-para.json`:
 `db/schema/amobeleza_etl/sheets_google_drive_{trafego,transacoes,navegacao,por_hora}.sql`, escritas a partir dos
 dicionários da WPP (doc Mascavo p. 31–38, doc Amobeleza p. 53–55) até o `schema:pull`. `items` usa `utf8mb3`: com
 `utf8mb4`, a PK de três `varchar(255)` passa do limite de 3.072 bytes do InnoDB — a tabela real deve ser `utf8`.
+Consequência: `Item_name` ou `Session_source` com emoji (4 bytes) dá erro de gravação e ROLLBACK da carga. Se o
+`schema:pull` confirmar `utf8mb3`, o conector precisa trocar esses caracteres nessa tabela (e contar no resumo).
 
 ## Pendências e dúvidas
 
@@ -167,7 +170,14 @@ levantamento da WPP, o Power BI **não lê** `sheets_google_drive_navegacao` —
 - Cota: propriedade padrão tem 200.000 tokens/dia e 40.000/hora; 9 relatórios a cada 3 h ficam bem abaixo, mas a carga
   retroativa deve ser feita em janelas de ~1 mês.
 
-**Limite do núcleo:** `iJob.tables` é uma lista só para as duas marcas, então o job declara as 8 tabelas (a união). O
-writer de cada marca só recebe as dela, mas o `schema:pull` vai tentar ler as 8 nos dois bancos — e a Amobeleza não
-tem `vendas`, `users`, `items` nem `category`. Precisa de um ajuste no núcleo (tabelas por marca) antes do primeiro
-`schema:pull`; registrado como pergunta.
+**Limite do núcleo (AMO-Q3):** `iJob.tables` é uma lista só para as duas marcas, então o job declara as 8 tabelas (a
+união). Duas consequências até o núcleo aceitar tabelas por marca:
+
+- O writer de cada marca recebe as 8: o writer da Amobeleza aceitaria gravar em `sheets_google_drive_items`. Hoje quem
+  impede é só `reports.ts` (cada marca só tem as suas definições); a trava "lista de tabelas" da ADR fica mais fraca
+  para este job.
+- O `schema:pull` lê as 8 nos dois bancos, e a Amobeleza não tem `vendas`, `users`, `items` nem `category`. O primeiro
+  `SHOW CREATE TABLE` que falhar derruba **o comando inteiro**, inclusive o pull das tabelas VTEX e AnyMarket das
+  outras fases.
+
+Proposta: um PR pequeno no núcleo (`tables` por marca), revisado à parte, antes do primeiro `schema:pull`.

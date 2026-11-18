@@ -42,6 +42,27 @@ const CENTS = 100
 /** Dígitos significativos que um double guarda sem erro. */
 const SAFE_DIGITS = 15
 
+const PLAIN_DECIMAL = /^(-?)(\d+)(?:\.(\d*))?$/
+const ROUND_UP_DIGIT = '5'
+
+/**
+ * Centavos como o MySQL arredonda ao gravar em decimal(10,2): meia unidade para longe do zero, sobre o texto decimal do
+ * GA4 — sem o erro de ponto flutuante do Math.round (2.135 → 2,14 e -2.345 → -2,35, como no banco).
+ */
+const roundCents = (raw: string, value: number): number => {
+	const match = PLAIN_DECIMAL.exec(raw.trim())
+
+	// Notação científica (não esperada do GA4): aproximação em ponto flutuante.
+	if (!match) return (Math.sign(value) * Math.round(Math.abs(value) * CENTS)) / CENTS
+
+	const [, sign, integer = '0', fraction = ''] = match
+	const digits = fraction.padEnd(3, '0')
+	const cents = BigInt(`${integer}${digits.slice(0, 2)}`) + (digits.charAt(2) >= ROUND_UP_DIGIT ? 1n : 0n)
+	const result = Number(cents) / CENTS
+
+	return sign === '-' && result !== 0 ? -result : result
+}
+
 const indexOf = (headers: string[]) => new Map(headers.map((name, index) => [name, index]))
 
 const createRowReader = (table: string, report: iReportData, stats: iTransformStats) => {
@@ -61,7 +82,7 @@ const createRowReader = (table: string, report: iReportData, stats: iTransformSt
 			return row.dimensions[index] ?? fail(`sem valor para a dimensão ${name}`)
 		}
 
-		const metric = (name: string): number => {
+		const metric = (name: string): { raw: string; value: number } => {
 			const index = metricIndex.get(name)
 
 			if (index === undefined) return fail(`a resposta não tem a métrica ${name}`)
@@ -71,7 +92,7 @@ const createRowReader = (table: string, report: iReportData, stats: iTransformSt
 
 			if (raw.trim() === '' || !Number.isFinite(value)) return fail(`${name}=${raw} não é número`)
 
-			return value
+			return { raw, value }
 		}
 
 		return {
@@ -98,9 +119,13 @@ const createRowReader = (table: string, report: iReportData, stats: iTransformSt
 
 				return hour
 			},
-			count: name => Math.round(metric(name)),
-			money: name => Math.round((metric(name) + Number.EPSILON) * CENTS) / CENTS,
-			number: name => metric(name)
+			count: name => Math.round(metric(name).value),
+			money: name => {
+				const { raw, value } = metric(name)
+
+				return roundCents(raw, value)
+			},
+			number: name => metric(name).value
 		}
 	}
 }

@@ -8,7 +8,7 @@ import { createChannelClassifier } from './de-para.js'
 import { GA4_TABLES, type iReportDefinition, reportsOf } from './reports.js'
 import type { iReportData, tFixture } from './schemas.js'
 import { collapseRows, toRows } from './transform.js'
-import { SAO_PAULO_TZ, addDays, type iDateWindow, resolveWindow } from './window.js'
+import { SAO_PAULO_TZ, addDays, dayInTimeZone, type iDateWindow, resolveWindow } from './window.js'
 
 /**
  * Job `ga4`: um runReport por tabela da marca, todos lidos antes de abrir a transação (nenhuma chamada de rede com
@@ -26,6 +26,8 @@ const WINDOW_DAYS = 3
 const GA4_SCHEDULE = '15 */3 * * *'
 /** Quantas combinações origem/campanha sem De/Para aparecem no resumo; o resto vira "+N". */
 const UNMAPPED_IN_NOTES = 10
+/** As colunas de receita (purchase_revenue, transaction_revenue, Item_revenue) são em reais. */
+const EXPECTED_CURRENCY = 'BRL'
 
 interface iPreparedTable {
 	definition: iReportDefinition
@@ -33,15 +35,18 @@ interface iPreparedTable {
 	rows: tRow[]
 }
 
-/** Período pedido ao GA4 para cada tipo de tabela. */
-const windowOf = (definition: iReportDefinition, window: iDateWindow): iDateWindow => {
+/**
+ * Período pedido ao GA4 para cada tipo de tabela. As tabelas de `replaceAll` (category, por_hora) terminam sempre em
+ * hoje, nunca no `--to`: numa carga retroativa (`--to` no passado), substituiriam o conteúdo atual por dado velho.
+ */
+const windowOf = (definition: iReportDefinition, window: iDateWindow, today: string): iDateWindow => {
 	switch (definition.scope.kind) {
 		case 'window':
 			return window
 		case 'since':
-			return { from: definition.scope.startDate, to: window.to }
+			return { from: definition.scope.startDate, to: today }
 		case 'lastDays':
-			return { from: addDays(window.to, -(definition.scope.days - 1)), to: window.to }
+			return { from: addDays(today, -(definition.scope.days - 1)), to: today }
 	}
 }
 
@@ -72,6 +77,10 @@ const reportNotes = ({ definition, report, window, rows, truncated, merged }: iT
 
 	if (report.metadata.timeZone && report.metadata.timeZone !== SAO_PAULO_TZ) {
 		notes.push(`${table}: propriedade no fuso ${report.metadata.timeZone}; a janela padrão usa o dia de São Paulo`)
+	}
+
+	if (report.metadata.currencyCode && report.metadata.currencyCode !== EXPECTED_CURRENCY) {
+		notes.push(`${table}: propriedade em ${report.metadata.currencyCode}; as colunas de receita esperam reais`)
 	}
 
 	if (report.metadata.dataLossFromOtherRow) notes.push(`${table}: o GA4 agrupou parte das linhas em "(other)"`)
@@ -140,6 +149,7 @@ const readReports = async (
 		? { from: fixture.dateRange.startDate, to: fixture.dateRange.endDate }
 		: undefined
 	const window = resolveWindow({ from: options.from, to: options.to, fallback, days: WINDOW_DAYS })
+	const today = dayInTimeZone(new Date())
 	const channel = createChannelClassifier()
 	const reader = await openReader(brand, fixture)
 	const prepared: iPreparedTable[] = []
@@ -147,7 +157,7 @@ const readReports = async (
 
 	try {
 		for (const definition of reportsOf(brand)) {
-			const tableWindow = windowOf(definition, window)
+			const tableWindow = windowOf(definition, window, today)
 			const report = await reader.runReport(definition.table, {
 				...requestOf(definition),
 				startDate: tableWindow.from,
@@ -180,7 +190,8 @@ const readReports = async (
 			prepared.push({ definition, window: tableWindow, rows: collapsed.rows })
 		}
 	} finally {
-		await reader.close()
+		// Falha ao fechar não pode esconder o erro do relatório.
+		await reader.close().catch((err: unknown) => logger.warn({ err }, 'GA4: falha ao fechar o cliente'))
 	}
 
 	return { prepared, notes: [...notes, ...channelNotes(channel.unmapped(), channel.ruleCount)] }
@@ -216,7 +227,8 @@ const ga4Job: iJob = {
 	source: 'ga4',
 	scope: 'brand',
 	description: 'Relatórios do GA4 nas tabelas sheets_google_drive_* (janela de 3 dias; category e por_hora inteiras)',
-	// O núcleo pede uma lista só para as duas marcas: é a união. Cada marca grava só as suas (reports.ts).
+	// O núcleo pede uma lista só para as duas marcas: é a união, e o writer de cada marca aceita as 8. Quem limita cada
+	// marca às suas tabelas é reports.ts. Tabelas por marca no núcleo: pergunta AMO-Q3 (também quebra o schema:pull).
 	tables: GA4_TABLES,
 	database: brand => {
 		if (!brand) throw new AppError('O job ga4 roda por marca.')

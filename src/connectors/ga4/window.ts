@@ -28,8 +28,12 @@ const addDays = (day: string, days: number): string => {
 	return date.toISOString().slice(0, 10)
 }
 
-/** O CLI monta --from como 00:00Z e --to como 23:59Z do dia digitado: a parte UTC é o próprio dia. */
-const dayOfCliDate = (date: Date): string => date.toISOString().slice(0, 10)
+/**
+ * O CLI monta --from como 00:00Z do dia digitado: a parte UTC é o próprio dia (em São Paulo seria a véspera). O --to
+ * vem como 23:59Z, que em São Paulo ainda é o mesmo dia — por isso o fim usa o dia de São Paulo, que também serve a
+ * quem passar um instante real ("agora", como diz o contrato do núcleo).
+ */
+const dayOfCliStart = (date: Date): string => date.toISOString().slice(0, 10)
 
 interface iWindowRequest {
 	from?: Date
@@ -43,8 +47,8 @@ interface iWindowRequest {
 
 /** Padrão: os últimos `days` dias até hoje (São Paulo). `--from`/`--to` do CLI vencem; depois, a janela da fixture. */
 const resolveWindow = ({ from, to, fallback, days, now = new Date() }: iWindowRequest): iDateWindow => {
-	const end = to ? dayOfCliDate(to) : (fallback?.to ?? dayInTimeZone(now))
-	const start = from ? dayOfCliDate(from) : (fallback?.from ?? addDays(end, -(days - 1)))
+	const end = to ? dayInTimeZone(to) : (fallback?.to ?? dayInTimeZone(now))
+	const start = from ? dayOfCliStart(from) : (fallback?.from ?? addDays(end, -(days - 1)))
 
 	if (!ISO_DAY.test(start) || !ISO_DAY.test(end) || start > end) {
 		throw new AppError(`Janela inválida ${start}..${end} (use AAAA-MM-DD, início <= fim).`)

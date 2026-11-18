@@ -29,6 +29,7 @@ const GA4_CALL_TIMEOUT_MS = 120_000
 const PAGE_SIZE = 100_000
 /** Teto de páginas por relatório: acima disso, peça uma janela menor (--from/--to). */
 const MAX_PAGES = 20
+const MAX_ROWS = MAX_PAGES * PAGE_SIZE
 
 interface iReportRequest {
 	dimensions: readonly string[]
@@ -60,6 +61,11 @@ const openClient = async (): Promise<BetaAnalyticsDataClient> => {
 
 	return new BetaAnalyticsDataClient({ keyFilename })
 }
+
+const tooManyRows = (table: string, request: iReportRequest, rows: number) =>
+	new AppError(
+		`${table}: ${rows} linhas em ${request.startDate}..${request.endDate} (teto ${MAX_ROWS}). Use uma janela menor (--from/--to).`
+	)
 
 const emptyReport = (request: iReportRequest): iReportData => ({
 	dimensionHeaders: [...request.dimensions],
@@ -129,15 +135,16 @@ const createLiveReader = async (propertyId: string): Promise<iGa4Reader> => {
 				})
 			const data = parseReport(table, raw)
 
+			// O rowCount da primeira página já diz o total: recusa antes de baixar 20 páginas.
+			if (data.rowCount > MAX_ROWS) throw tooManyRows(table, request, data.rowCount)
+
 			pages.push(data)
 			offset += data.rows.length
 
 			if (data.rows.length === 0 || offset >= data.rowCount) return mergePages(pages)
 		}
 
-		throw new AppError(
-			`${table}: mais de ${MAX_PAGES * PAGE_SIZE} linhas em ${request.startDate}..${request.endDate}. Use uma janela menor (--from/--to).`
-		)
+		throw tooManyRows(table, request, offset)
 	}
 
 	return { propertyId, runReport, close: () => client.close() }
@@ -222,7 +229,8 @@ const checkProperty = async (
 
 		throw new AppError(`GA4 (${property}): ${errorMessage(err)}`, { cause: err })
 	} finally {
-		await client.close()
+		// Falha ao fechar não pode esconder o resultado (ou o erro) da checagem.
+		await client.close().catch(() => undefined)
 	}
 }
 
