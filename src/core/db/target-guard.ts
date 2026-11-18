@@ -5,12 +5,18 @@ import { type iSqlConnection, rowsOf } from './connection.js'
 import { LOCAL_MARKER, isLaravelTable, isSafeIdentifier } from './tables.js'
 
 /**
- * Travas do banco de DESTINO. Rodam antes de qualquer gravação; se uma falha, nada é gravado.
+ * Travas do banco de DESTINO. Rodam antes de qualquer gravação (e antes do lock); se uma falha, nada é feito.
  *
- * O marcador local é a trava principal: um túnel SSH para a produção também aparece como 127.0.0.1, então o host sozinho
- * não prova nada. O marcador só existe no Docker local (db/init/00-local.sql) e o usuário do ETL não tem permissão de
- * criá-lo — o código não consegue "fabricar" um destino local.
+ * Um túnel SSH para a produção também aparece como 127.0.0.1, então o host da conexão não prova nada. A identidade do
+ * Docker local é conferida no próprio servidor, na mesma conexão que vai gravar:
+ * 1. marcador `etl_local_meta.marker` = 'local-dev';
+ * 2. `@@hostname` = hostname fixo do container (docker-compose.yml);
+ * 3. `CURRENT_USER()` = etl_local@%;
+ * 4. `SHOW GRANTS` do usuário: nada global além de USAGE, nada além de SELECT no banco do marcador, sem role, sem GRANT
+ *    OPTION — um usuário de produção (ou o root) nunca passa, mesmo que alguém crie o marcador lá por engano.
  */
+
+const LOCAL_ONLY_MESSAGE = 'Gravação recusada: este código só grava no MySQL local do Docker.'
 
 const assertTargetDatabase = (database: string): tDatabase => {
 	if (!(DATABASES as readonly string[]).includes(database)) {
@@ -30,28 +36,81 @@ const assertWritableTable = (table: string, allowedTables: ReadonlySet<string>):
 	}
 }
 
-const readMarker = async (connection: iSqlConnection): Promise<boolean> => {
-	const result = await connection.query(
-		`SELECT env FROM \`${LOCAL_MARKER.schema}\`.\`${LOCAL_MARKER.table}\` WHERE env = ? LIMIT 1`,
-		[LOCAL_MARKER.env]
-	)
+/** Bancos em que o usuário local pode ter qualquer privilégio. */
+const LOCAL_WRITABLE_SCHEMAS = new Set(DATABASES.map(database => `\`${database}\`.*`))
+const MARKER_SCHEMA_GRANT = `\`${LOCAL_MARKER.schema}\`.*`
 
-	return rowsOf(result).length > 0
-}
+/** Confere as linhas de SHOW GRANTS do usuário local. Exportado para teste. */
+const assertLocalGrants = (grantLines: string[]): void => {
+	for (const raw of grantLines) {
+		const line = raw.trim()
 
-const assertLocalTarget = async (connection: iSqlConnection): Promise<void> => {
-	const found = await readMarker(connection).catch((err: unknown) => {
-		throw new SafetyError(
-			'Destino sem o marcador do banco local (etl_local_meta.marker). Gravação recusada: este código só grava no Docker local.',
-			{ cause: err }
-		)
-	})
+		if (/WITH\s+GRANT\s+OPTION/i.test(line))
+			throw new SafetyError(`Usuário com GRANT OPTION. ${LOCAL_ONLY_MESSAGE}`)
 
-	if (!found) {
-		throw new SafetyError(
-			'Marcador do banco local ausente. Gravação recusada: este código só grava no Docker local.'
-		)
+		const match = /^GRANT\s+(.+?)\s+ON\s+(\S+)\s+TO\s+/i.exec(line)
+
+		if (!match?.[1] || !match[2]) throw new SafetyError(`Grant não reconhecido (role?). ${LOCAL_ONLY_MESSAGE}`)
+
+		const privileges = match[1].trim().toUpperCase()
+		const target = match[2]
+
+		if (target === '*.*') {
+			if (privileges !== 'USAGE') throw new SafetyError(`Usuário com privilégio global. ${LOCAL_ONLY_MESSAGE}`)
+
+			continue
+		}
+
+		if (target === MARKER_SCHEMA_GRANT) {
+			if (privileges !== 'SELECT') throw new SafetyError(`Usuário pode alterar o marcador. ${LOCAL_ONLY_MESSAGE}`)
+
+			continue
+		}
+
+		if (!LOCAL_WRITABLE_SCHEMAS.has(target)) {
+			throw new SafetyError(`Usuário com privilégio em ${target}. ${LOCAL_ONLY_MESSAGE}`)
+		}
 	}
 }
 
-export { assertLocalTarget, assertTargetDatabase, assertWritableTable }
+interface iLocalIdentity {
+	host: string | null
+	user: string | null
+	marker: number | string | null
+}
+
+const readIdentity = async (connection: iSqlConnection): Promise<iLocalIdentity | undefined> => {
+	const result = await connection.query(
+		`SELECT @@hostname AS host, CURRENT_USER() AS user, ` +
+			`(SELECT COUNT(*) FROM \`${LOCAL_MARKER.schema}\`.\`${LOCAL_MARKER.table}\` WHERE env = ?) AS marker`,
+		[LOCAL_MARKER.env]
+	)
+
+	return rowsOf<iLocalIdentity>(result)[0]
+}
+
+const assertLocalTarget = async (connection: iSqlConnection): Promise<void> => {
+	const identity = await readIdentity(connection).catch((err: unknown) => {
+		throw new SafetyError(`Destino sem o marcador do banco local (etl_local_meta.marker). ${LOCAL_ONLY_MESSAGE}`, {
+			cause: err
+		})
+	})
+
+	if (!identity || Number(identity.marker) < 1) {
+		throw new SafetyError(`Marcador do banco local ausente. ${LOCAL_ONLY_MESSAGE}`)
+	}
+
+	if (identity.host !== LOCAL_MARKER.hostname) {
+		throw new SafetyError(`O servidor não é o container local (hostname diferente). ${LOCAL_ONLY_MESSAGE}`)
+	}
+
+	if (identity.user !== LOCAL_MARKER.user) {
+		throw new SafetyError(`Usuário conectado não é o etl_local do Docker. ${LOCAL_ONLY_MESSAGE}`)
+	}
+
+	const grants = rowsOf<Record<string, string>>(await connection.query('SHOW GRANTS'))
+
+	assertLocalGrants(grants.map(row => Object.values(row).join(' ')))
+}
+
+export { assertLocalGrants, assertLocalTarget, assertTargetDatabase, assertWritableTable }

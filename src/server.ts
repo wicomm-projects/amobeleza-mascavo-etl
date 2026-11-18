@@ -17,7 +17,7 @@ try {
 async function main() {
 	const { createApp } = await import('./app.js')
 	const { startScheduler, stopScheduler } = await import('./core/jobs/scheduler.js')
-	const { closePools } = await import('./core/db/pools.js')
+	const { closePools } = await import('./core/db/index.js')
 
 	const logger = getLogger()
 	const app = createApp()

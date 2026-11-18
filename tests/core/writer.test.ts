@@ -1,46 +1,28 @@
 import { describe, expect, it } from 'vitest'
 
-import type { iConnectionSource } from '../../src/core/db/connection.js'
+import { guardedTargetSource } from '../../src/core/db/guarded.js'
+import { assertLocalGrants } from '../../src/core/db/target-guard.js'
 import { createWriter } from '../../src/core/db/writer.js'
 import { SafetyError } from '../../src/core/errors.js'
 
-type tMarker = 'present' | 'absent' | 'missing-table'
-
-/** Conexão falsa que registra cada SQL e simula o marcador do banco local. Nenhum banco real é usado. */
-const fakeSource = (marker: tMarker) => {
-	const queries: string[] = []
-	let connections = 0
-	const source: iConnectionSource = {
-		getConnection: async () => {
-			connections += 1
-
-			return {
-				query: async (sql: string) => {
-					queries.push(sql)
-
-					if (sql.includes('etl_local_meta')) {
-						if (marker === 'missing-table') throw new Error("Table 'etl_local_meta.marker' doesn't exist")
-
-						return [marker === 'present' ? [{ env: 'local-dev' }] : [], []]
-					}
-
-					return [{ affectedRows: 1 }, []]
-				},
-				release: () => undefined
-			}
-		}
-	}
-
-	return { source, queries, connections: () => connections }
-}
+import { fakeTarget, type tTargetScenario } from './fakes.js'
 
 const writes = (queries: string[]) => queries.filter(sql => /^(INSERT|DELETE|START|COMMIT)/.test(sql))
 
 const now = () => new Date('2026-11-18T12:00:00.000Z')
 
-describe('writer: travas do banco de destino', () => {
-	it.each<tMarker>(['absent', 'missing-table'])('sem marcador local (%s): recusa e não grava nada', async marker => {
-		const fake = fakeSource(marker)
+const NOT_LOCAL: tTargetScenario[] = [
+	'no-marker',
+	'missing-marker-table',
+	'other-host',
+	'other-user',
+	'global-privileges',
+	'can-write-marker'
+]
+
+describe('writer: só grava no Docker local', () => {
+	it.each(NOT_LOCAL)('destino que não é o Docker local (%s): recusa e não grava nada', async scenario => {
+		const fake = fakeTarget(scenario)
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['vtex_orders'], dryRun: false },
 			{ source: fake.source, now }
@@ -53,8 +35,8 @@ describe('writer: travas do banco de destino', () => {
 		expect(writes(fake.queries)).toEqual([])
 	})
 
-	it('com marcador local: grava dentro de uma transação', async () => {
-		const fake = fakeSource('present')
+	it('no Docker local: grava dentro de uma transação', async () => {
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['vtex_orders'], dryRun: false },
 			{ source: fake.source, now }
@@ -73,6 +55,13 @@ describe('writer: travas do banco de destino', () => {
 		expect(results).toHaveLength(1)
 	})
 
+	it.each(NOT_LOCAL)('conexão protegida (usada pelo lock) recusa destino %s', async scenario => {
+		const fake = fakeTarget(scenario)
+
+		await expect(guardedTargetSource(fake.source).getConnection()).rejects.toThrow(SafetyError)
+		expect(fake.queries.some(sql => sql.includes('GET_LOCK'))).toBe(false)
+	})
+
 	it.each(['failed_jobs', 'telescope_entries', 'migrations', 'users', 'health_check_result_history_items'])(
 		'recusa declarar tabela do Laravel: %s',
 		table => {
@@ -85,7 +74,7 @@ describe('writer: travas do banco de destino', () => {
 	})
 
 	it('recusa gravar tabela fora da lista do job e desfaz a transação', async () => {
-		const fake = fakeSource('present')
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['vtex_orders'], dryRun: false },
 			{ source: fake.source, now }
@@ -99,7 +88,7 @@ describe('writer: travas do banco de destino', () => {
 	})
 
 	it('erro no meio da carga desfaz tudo (ROLLBACK, sem COMMIT)', async () => {
-		const fake = fakeSource('present')
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['vtex_orders'], dryRun: false },
 			{ source: fake.source, now }
@@ -117,7 +106,7 @@ describe('writer: travas do banco de destino', () => {
 	})
 
 	it('dry-run não abre conexão nenhuma', async () => {
-		const fake = fakeSource('present')
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'amobeleza_etl', tables: ['vtex_orders'], dryRun: true },
 			{ source: fake.source, now }
@@ -134,11 +123,50 @@ describe('writer: travas do banco de destino', () => {
 	it('dry-run também recusa tabela fora da lista', async () => {
 		const writer = createWriter({ database: 'amobeleza_etl', tables: ['vtex_orders'], dryRun: true })
 
-		await expect(writer.transaction(tx => tx.replaceAll('failed_jobs', []))).rejects.toThrow(SafetyError)
+		await expect(writer.transaction(tx => tx.replaceAll('failed_jobs', [{ id: 1 }]))).rejects.toThrow(SafetyError)
+	})
+})
+
+describe('writer: proteção contra apagar dado por resposta vazia ou janela errada', () => {
+	it('replaceAll com lote vazio é recusado antes de apagar', async () => {
+		const fake = fakeTarget('local')
+		const writer = createWriter(
+			{ database: 'mascavo_etl', tables: ['vtex_category_tree'], dryRun: false },
+			{ source: fake.source, now }
+		)
+
+		await expect(writer.transaction(tx => tx.replaceAll('vtex_category_tree', []))).rejects.toThrow(/lote vazio/)
+		expect(fake.queries.filter(sql => sql.startsWith('DELETE'))).toEqual([])
+	})
+
+	it('replaceAll com lote vazio só passa com allowEmpty explícito', async () => {
+		const fake = fakeTarget('local')
+		const writer = createWriter(
+			{ database: 'mascavo_etl', tables: ['vtex_category_tree'], dryRun: false },
+			{ source: fake.source, now }
+		)
+
+		await writer.transaction(tx => tx.replaceAll('vtex_category_tree', [], { allowEmpty: true }))
+		expect(fake.queries).toContain('DELETE FROM `mascavo_etl`.`vtex_category_tree`')
+	})
+
+	it('replaceDateWindow com lote vazio é recusado antes de apagar', async () => {
+		const fake = fakeTarget('local')
+		const writer = createWriter(
+			{ database: 'mascavo_etl', tables: ['sheets_google_drive_trafego'], dryRun: false },
+			{ source: fake.source, now }
+		)
+
+		await expect(
+			writer.transaction(tx =>
+				tx.replaceDateWindow('sheets_google_drive_trafego', 'date', '2026-11-01', '2026-11-03', [])
+			)
+		).rejects.toThrow(/lote vazio/)
+		expect(fake.queries.filter(sql => sql.startsWith('DELETE'))).toEqual([])
 	})
 
 	it('replaceDateWindow recusa linha fora da janela antes de apagar', async () => {
-		const fake = fakeSource('present')
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['sheets_google_drive_trafego'], dryRun: false },
 			{ source: fake.source, now }
@@ -155,8 +183,26 @@ describe('writer: travas do banco de destino', () => {
 		expect(fake.queries.filter(sql => sql.startsWith('DELETE'))).toEqual([])
 	})
 
+	it('replaceDateWindow apaga até o fim do último dia (serve para DATE e DATETIME)', async () => {
+		const fake = fakeTarget('local')
+		const writer = createWriter(
+			{ database: 'mascavo_etl', tables: ['sheets_google_drive_trafego'], dryRun: false },
+			{ source: fake.source, now }
+		)
+
+		await writer.transaction(tx =>
+			tx.replaceDateWindow('sheets_google_drive_trafego', 'date', '2026-11-01', '2026-11-03', [
+				{ date: '2026-11-03 18:00:00' }
+			])
+		)
+
+		expect(fake.queries).toContain(
+			'DELETE FROM `mascavo_etl`.`sheets_google_drive_trafego` WHERE `date` >= ? AND `date` < ?'
+		)
+	})
+
 	it('upsert nunca sobrescreve created_at', async () => {
-		const fake = fakeSource('present')
+		const fake = fakeTarget('local')
 		const writer = createWriter(
 			{ database: 'mascavo_etl', tables: ['vtex_order_details'], dryRun: false },
 			{ source: fake.source, now }
@@ -173,5 +219,28 @@ describe('writer: travas do banco de destino', () => {
 		)
 		expect(insert).not.toContain('`created_at` = VALUES')
 		expect(insert).not.toContain('`order_id` = VALUES')
+	})
+})
+
+describe('grants do usuário local', () => {
+	it('aceita os grants do Docker (db/init/00-local.sql)', () => {
+		expect(() =>
+			assertLocalGrants([
+				'GRANT USAGE ON *.* TO `etl_local`@`%`',
+				'GRANT ALL PRIVILEGES ON `mascavo_etl`.* TO `etl_local`@`%`',
+				'GRANT ALL PRIVILEGES ON `amobeleza_etl`.* TO `etl_local`@`%`',
+				'GRANT SELECT ON `etl_local_meta`.* TO `etl_local`@`%`'
+			])
+		).not.toThrow()
+	})
+
+	it.each([
+		'GRANT ALL PRIVILEGES ON *.* TO `root`@`%` WITH GRANT OPTION',
+		'GRANT SELECT ON *.* TO `leitura`@`%`',
+		'GRANT INSERT ON `etl_local_meta`.* TO `etl_local`@`%`',
+		'GRANT ALL PRIVILEGES ON `outro_banco`.* TO `etl_local`@`%`',
+		'GRANT `dba`@`%` TO `etl_local`@`%`'
+	])('recusa %s', line => {
+		expect(() => assertLocalGrants([line])).toThrow(SafetyError)
 	})
 })

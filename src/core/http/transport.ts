@@ -2,7 +2,7 @@ import axios, { AxiosError, type AxiosInstance } from 'axios'
 
 import { getLogger } from '../../config/index.js'
 import { sleep } from '../concurrency.js'
-import { HttpError } from '../errors.js'
+import { HttpError, SafetyError } from '../errors.js'
 
 /**
  * Cliente HTTP SÓ DE LEITURA para as fontes (VTEX, AnyMarket).
@@ -73,11 +73,19 @@ const createGetClient = (options: iGetClientOptions): iGetClient => {
 		timeout: options.timeoutMs,
 		headers: { Accept: 'application/json', ...options.headers },
 		// O status é tratado aqui embaixo; o axios não lança por status.
-		validateStatus: () => true
+		validateStatus: () => true,
+		// As credenciais vão nos headers: nunca para outro host. Sem URL absoluta e sem seguir redirect.
+		allowAbsoluteUrls: false,
+		maxRedirects: 0
 	})
 
 	const get = async <T>(path: string, params?: tQueryParams): Promise<T> => {
 		const logger = getLogger()
+
+		// Link "next" de paginação vem absoluto: o conector converte para caminho relativo antes de chamar.
+		if (!path.startsWith('/') || path.startsWith('//')) {
+			throw new SafetyError(`${options.source}: só caminho relativo ao baseURL ("/..."), recebido ${path}`)
+		}
 
 		for (let attempt = 0; attempt < options.maxAttempts; attempt += 1) {
 			const startedAt = Date.now()

@@ -15,8 +15,8 @@ import { z } from 'zod'
 
 const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1'] as const
 
-/** `mysql` é o nome do serviço no docker-compose; os demais são loopback. */
-const LOCAL_DB_HOSTS = [...LOOPBACK_HOSTS, 'mysql'] as const
+/** Destino aceito: só loopback (o Docker publica a porta em 127.0.0.1). A identidade real é conferida no servidor. */
+const LOCAL_DB_HOSTS = LOOPBACK_HOSTS
 
 const FORBIDDEN_DB_USERS = ['root']
 
@@ -111,6 +111,7 @@ const envSchema = z
 	})
 	.superRefine((env, ctx) => {
 		const groups: Record<string, (keyof typeof env)[]> = {
+			'banco de destino': ['TARGET_DB_USER', 'TARGET_DB_PASSWORD'],
 			'banco de referência': ['REF_DB_HOST', 'REF_DB_USER', 'REF_DB_PASSWORD'],
 			'VTEX Mascavo': ['VTEX_MASCAVO_ACCOUNT', 'VTEX_MASCAVO_APP_KEY', 'VTEX_MASCAVO_APP_TOKEN'],
 			'VTEX Amobeleza': ['VTEX_AMOBELEZA_ACCOUNT', 'VTEX_AMOBELEZA_APP_KEY', 'VTEX_AMOBELEZA_APP_TOKEN']
@@ -127,6 +128,16 @@ const envSchema = z
 				code: 'custom',
 				path: [missing[0] as string],
 				message: `Grupo "${group}" incompleto: falta ${missing.join(', ')}`
+			})
+		}
+
+		const ga4PropertySet = env.GA4_MASCAVO_PROPERTY_ID !== undefined || env.GA4_AMOBELEZA_PROPERTY_ID !== undefined
+
+		if (ga4PropertySet && env.GOOGLE_APPLICATION_CREDENTIALS === undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['GOOGLE_APPLICATION_CREDENTIALS'],
+				message: 'GA4: com ID de propriedade preenchido, falta o caminho do JSON da conta de serviço'
 			})
 		}
 	})

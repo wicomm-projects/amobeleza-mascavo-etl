@@ -46,15 +46,25 @@ interface iWriteTx {
 		keys: readonly (string | number)[],
 		rows: tRow[]
 	) => Promise<iWriteResult>
-	/** `from` e `to` no formato AAAA-MM-DD, inclusivos. */
+	/**
+	 * `from` e `to` no formato AAAA-MM-DD, inclusivos (funciona com coluna DATE ou DATETIME). Lote vazio é recusado —
+	 * uma API que respondeu vazio por falha apagaria a janela inteira — a menos que `allowEmpty` seja explícito.
+	 */
 	replaceDateWindow: (
 		table: string,
 		dateColumn: string,
 		from: string,
 		to: string,
-		rows: tRow[]
+		rows: tRow[],
+		options?: iEmptyOptions
 	) => Promise<iWriteResult>
-	replaceAll: (table: string, rows: tRow[]) => Promise<iWriteResult>
+	/** Lote vazio é recusado (apagaria a tabela inteira), a menos que `allowEmpty` seja explícito. */
+	replaceAll: (table: string, rows: tRow[], options?: iEmptyOptions) => Promise<iWriteResult>
+}
+
+interface iEmptyOptions {
+	/** Aceitar zero linhas, apagando o que existe. Use só quando a fonte confirmou que não há dado. */
+	allowEmpty?: boolean
 }
 
 interface iWriter {
@@ -81,6 +91,23 @@ const INSERT_BATCH_SIZE = 500
 const DELETE_KEYS_BATCH_SIZE = 1000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const TIMESTAMP_COLUMNS = ['created_at', 'updated_at'] as const
+
+/** Dia seguinte a AAAA-MM-DD, em UTC. */
+const nextDay = (day: string): string => {
+	const date = new Date(`${day}T00:00:00.000Z`)
+
+	date.setUTCDate(date.getUTCDate() + 1)
+
+	return date.toISOString().slice(0, 10)
+}
+
+const assertNotEmpty = (table: string, rows: tRow[], options: iEmptyOptions) => {
+	if (rows.length > 0 || options.allowEmpty) return
+
+	throw new AppError(
+		`${table}: lote vazio recusado (apagaria os dados existentes). Se a fonte confirmou que não há dado, use allowEmpty.`
+	)
+}
 
 const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	const chunks: T[][] = []
@@ -227,7 +254,14 @@ const createWriter = (scope: iWriterScope, deps: iWriterDeps = {}): iWriter => {
 			return result(table, 'replaceByKeys', deleted, await insertRows(connection, table, rows))
 		}
 
-		const replaceDateWindow: iWriteTx['replaceDateWindow'] = async (table, dateColumn, from, to, rawRows) => {
+		const replaceDateWindow: iWriteTx['replaceDateWindow'] = async (
+			table,
+			dateColumn,
+			from,
+			to,
+			rawRows,
+			options = {}
+		) => {
 			assertWritableTable(table, allowedTables)
 			assertColumn(dateColumn)
 
@@ -235,11 +269,13 @@ const createWriter = (scope: iWriterScope, deps: iWriterDeps = {}): iWriter => {
 				throw new AppError(`${table}: janela inválida ${from}..${to} (use AAAA-MM-DD, início <= fim).`)
 			}
 
+			assertNotEmpty(table, rawRows, options)
+
 			const rows = prepareRows(rawRows)
 
 			rows.forEach((row, index) => {
 				const value = row[dateColumn]
-				const day = value instanceof Date ? value.toISOString().slice(0, 10) : String(value)
+				const day = value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10)
 
 				if (day < from || day > to) {
 					throw new AppError(
@@ -250,18 +286,20 @@ const createWriter = (scope: iWriterScope, deps: iWriterDeps = {}): iWriter => {
 
 			if (!connection) return result(table, 'replaceDateWindow', 0, rows.length)
 
+			// `>= início AND < dia seguinte ao fim` cobre DATE e DATETIME (BETWEEN perderia o último dia depois de 00:00).
 			const deleted = affectedRowsOf(
 				await connection.query(
-					`DELETE FROM ${qualified(table)} WHERE ${mysql.escapeId(dateColumn)} BETWEEN ? AND ?`,
-					[from, to]
+					`DELETE FROM ${qualified(table)} WHERE ${mysql.escapeId(dateColumn)} >= ? AND ${mysql.escapeId(dateColumn)} < ?`,
+					[from, nextDay(to)]
 				)
 			)
 
 			return result(table, 'replaceDateWindow', deleted, await insertRows(connection, table, rows))
 		}
 
-		const replaceAll: iWriteTx['replaceAll'] = async (table, rawRows) => {
+		const replaceAll: iWriteTx['replaceAll'] = async (table, rawRows, options = {}) => {
 			assertWritableTable(table, allowedTables)
+			assertNotEmpty(table, rawRows, options)
 			const rows = prepareRows(rawRows)
 
 			if (!connection) return result(table, 'replaceAll', 0, rows.length)

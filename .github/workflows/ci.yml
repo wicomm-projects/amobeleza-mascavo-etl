@@ -12,7 +12,7 @@ permissions:
 jobs:
     checks:
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 15
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -25,3 +25,8 @@ jobs:
             - run: npm run typecheck
             - run: npm test
             - run: npm run build
+            # MySQL LOCAL do docker-compose, só dentro do runner: prova as travas no servidor real.
+            - run: docker compose up -d --wait
+            - run: npm run test:integration
+            - if: always()
+              run: docker compose down -v

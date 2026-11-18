@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { HttpError } from '../../src/core/errors.js'
+import { HttpError, SafetyError } from '../../src/core/errors.js'
 import { createGetClient, parseRetryAfter } from '../../src/core/http/transport.js'
 
 /** Servidor HTTP local (127.0.0.1, porta aleatória) que responde a sequência de status combinada. Sem rede externa. */
@@ -17,7 +17,7 @@ beforeAll(async () => {
 		methods.push(req.method ?? '')
 		const status = statusQueue.shift() ?? 200
 
-		res.writeHead(status, { 'content-type': 'application/json' })
+		res.writeHead(status, { 'content-type': 'application/json', 'location': 'http://127.0.0.2:9/roubo' })
 		res.end(JSON.stringify({ status }))
 	})
 	await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -61,6 +61,21 @@ describe('transporte HTTP só leitura', () => {
 		await expect(client().get('/pedidos')).rejects.toBeInstanceOf(HttpError)
 		expect(methods).toHaveLength(3)
 	})
+
+	it('não segue redirect: as credenciais nunca vão para outro host', async () => {
+		statusQueue = [302]
+
+		await expect(client().get('/pedidos')).rejects.toMatchObject({ status: 302, retryable: false })
+		expect(methods).toEqual(['GET'])
+	})
+
+	it.each(['http://outro-host/pedidos', '//outro-host/pedidos', 'pedidos'])(
+		'recusa caminho que não é relativo ao baseURL: %s',
+		async path => {
+			await expect(client().get(path)).rejects.toBeInstanceOf(SafetyError)
+			expect(methods).toEqual([])
+		}
+	)
 
 	it('não tenta de novo em 4xx (credencial errada, rota inexistente)', async () => {
 		statusQueue = [403]

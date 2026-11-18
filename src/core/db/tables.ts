@@ -24,7 +24,18 @@ const SAFE_IDENTIFIER = /^[A-Za-z0-9_]+$/
 
 const isSafeIdentifier = (value: string): boolean => SAFE_IDENTIFIER.test(value)
 
-/** Banco local que prova que o destino é o Docker de desenvolvimento (ver db/init/00-local.sql). */
-const LOCAL_MARKER = { schema: 'etl_local_meta', table: 'marker', env: 'local-dev' } as const
+/**
+ * Identidade do MySQL LOCAL (Docker). O destino só é aceito se as três baterem:
+ * - a linha do marcador em etl_local_meta.marker (criada por db/init/00-local.sql);
+ * - o hostname do servidor (fixo no docker-compose.yml);
+ * - o usuário conectado (etl_local, que só tem SELECT no banco do marcador).
+ */
+const LOCAL_MARKER = {
+	schema: 'etl_local_meta',
+	table: 'marker',
+	env: 'local-dev',
+	hostname: 'amo-etl-mysql-local',
+	user: 'etl_local@%'
+} as const
 
 export { LOCAL_MARKER, isLaravelTable, isSafeIdentifier }

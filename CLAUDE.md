@@ -8,12 +8,19 @@ as mesmas colunas, tipos e convenções de antes (docs/contrato/).
 
 **Nada neste repositório grava no banco da cliente.** Nesta etapa o destino só pode ser o MySQL local do Docker.
 
-- O env recusa destino fora do local (`TARGET_DB_HOST`) e recusa o usuário `root` em qualquer banco.
-- O writer só grava se achar `etl_local_meta.marker` (só existe no Docker local; o usuário do ETL não consegue criá-lo).
-  Um túnel SSH para a produção aparece como 127.0.0.1 — por isso o marcador, e não o host, é a trava principal.
-- O banco da cliente (`REF_DB_*`) é só leitura: `src/core/db/ref-reader.ts` aceita um único SELECT/SHOW, roda dentro de
-  `START TRANSACTION READ ONLY`, com `max_execution_time`, e nunca lê tabela do Laravel.
-- VTEX e AnyMarket: o cliente HTTP (`src/core/http/transport.ts`) só tem `get`. Nada é alterado nas plataformas.
+- O env recusa destino fora do loopback (`TARGET_DB_HOST`) e recusa o usuário `root` em qualquer banco.
+- Antes de gravar (e antes do lock e do `db:apply`), o núcleo confere no servidor a identidade do Docker local: marcador
+  `etl_local_meta.marker`, `@@hostname` = `amo-etl-mysql-local`, usuário `etl_local@%` e grants. Um túnel SSH para a
+  produção aparece como 127.0.0.1 — por isso a conferência é no servidor, não no host.
+- Fora de `src/core/db`, é proibido importar `mysql2`, pools ou conexões (ESLint). Use `src/core/db/index.ts`.
+- O banco da cliente (`REF_DB_*`) é só leitura: `src/core/db/ref-reader.ts` aceita um único SELECT/SHOW sem comentário
+  nenhum, recusa usuário que não seja só leitura (SHOW GRANTS), roda em sessão `READ ONLY` + `START TRANSACTION READ
+ONLY` com `max_execution_time`, e nunca lê tabela do Laravel. Consulta na produção: sempre por chave e com LIMIT.
+- `replaceAll` e `replaceDateWindow` recusam lote vazio: resposta vazia da API não pode apagar dados. Só passe
+  `allowEmpty` quando a fonte confirmar que não há dado.
+- VTEX e AnyMarket: o cliente HTTP (`src/core/http/transport.ts`) só tem `get`, só com caminho relativo ("/...") e sem
+  seguir redirect. Link de paginação absoluto (`next`) vira caminho relativo no conector. Nada é alterado nas
+  plataformas.
 - Liberar gravação em produção é um PR próprio, revisado, só depois de: paridade OK, backup das tabelas, autorização
   por escrito da cliente e usuário próprio com permissão só nas tabelas do mapa. Não "destrave" as regras acima em outro PR.
 - Tabelas do Laravel (`failed_jobs`, `telescope_*`, `migrations`, `users`, `password_resets`, `personal_access_tokens`,
@@ -39,6 +46,7 @@ npm run etl -- run <job> --brand mascavo --fixture caminho.json
 npm run etl -- parity <job> --brand mascavo --sample 200
 npm run dev                        # Express /health e /status em 127.0.0.1:3000
 npm run typecheck && npm run lint && npm test
+npm run test:integration           # precisa do db:up; prova as travas no MySQL local
 ```
 
 ## Estrutura

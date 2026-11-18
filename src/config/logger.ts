@@ -9,6 +9,13 @@ import { getEnv } from './env.js'
  */
 const REDACT_PATHS = [
 	'*.headers',
+	'*.*.headers',
+	'*.config.headers',
+	'err.config.headers',
+	'err.cause.config.headers',
+	'*.*.password',
+	'*.*.appToken',
+	'*.*.token',
 	'*.password',
 	'*.appKey',
 	'*.appToken',

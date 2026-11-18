@@ -1,5 +1,5 @@
 import { getLogger, type tBrand } from '../../config/index.js'
-import { createWriter } from '../db/writer.js'
+import { createWriter } from '../db/index.js'
 import { AppError } from '../errors.js'
 
 import { withJobLock } from './lock.js'

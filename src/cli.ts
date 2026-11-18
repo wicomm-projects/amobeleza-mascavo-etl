@@ -86,10 +86,7 @@ const commandJobs = async () => {
 const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) => {
 	const { SOURCES } = await import('./core/jobs/registry.js')
 	const { brandsOfSource } = await import('./core/sources-status.js')
-	const { isRefConfigured, getTargetPool } = await import('./core/db/pools.js')
-	const { createRefReader } = await import('./core/db/ref-reader.js')
-	const { assertLocalTarget } = await import('./core/db/target-guard.js')
-	const { fromPool } = await import('./core/db/connection.js')
+	const { checkLocalTarget, createRefReader, isRefConfigured } = await import('./core/db/index.js')
 	let failures = 0
 
 	for (const source of SOURCES) {
@@ -120,21 +117,16 @@ const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) =
 
 	if (sourceFilter) return failures > 0 ? 1 : 0
 
-	// Banco local (destino): confere o marcador. Não grava nada.
+	// Banco local (destino): confere marcador, hostname, usuário e grants do Docker. Não grava nada.
 	try {
-		const connection = await fromPool(getTargetPool).getConnection()
-
-		try {
-			await assertLocalTarget(connection)
-			out(`${'Banco local (Docker)'.padEnd(32)} OK: marcador local presente`)
-		} finally {
-			connection.release()
-		}
+		await checkLocalTarget()
+		out(`${'Banco local (Docker)'.padEnd(32)} OK: identidade do Docker local conferida`)
 	} catch (err) {
 		out(`${'Banco local (Docker)'.padEnd(32)} indisponível: ${err instanceof Error ? err.message : String(err)}`)
 	}
 
-	// Banco de referência (produção): SELECT 1 em transação READ ONLY + conferência de que o usuário não grava.
+	// Banco de referência (produção): o reader confere SHOW GRANTS (só leitura, sem role) antes do SELECT 1 e recusa
+	// trabalhar se o usuário puder gravar. Qualquer recusa conta como falha (sai com 1).
 	if (!isRefConfigured()) {
 		out(`${'Banco de referência (cliente)'.padEnd(32)} aguardando usuário só leitura`)
 
@@ -142,17 +134,8 @@ const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) =
 	}
 
 	try {
-		const reader = createRefReader()
-
-		await reader.query('SELECT 1 AS ok')
-		const grants = await reader.query<Record<string, string>>('SHOW GRANTS')
-		const text = grants.map(row => Object.values(row).join(' ')).join('\n')
-		const canWrite = /\b(ALL PRIVILEGES|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b/i.test(text)
-
-		out(
-			`${'Banco de referência (cliente)'.padEnd(32)} OK: conexão só leitura` +
-				(canWrite ? ' — ATENÇÃO: o usuário tem permissão de escrita; peça um só de leitura' : '')
-		)
+		await createRefReader().query('SELECT 1 AS ok')
+		out(`${'Banco de referência (cliente)'.padEnd(32)} OK: usuário só leitura, sessão READ ONLY`)
 	} catch (err) {
 		failures += 1
 		out(`${'Banco de referência (cliente)'.padEnd(32)} FALHOU: ${err instanceof Error ? err.message : String(err)}`)
@@ -162,7 +145,7 @@ const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) =
 }
 
 const commandDbApply = async () => {
-	const { applySchemas, listSchemaFiles } = await import('./core/db/schema-files.js')
+	const { applySchemas, listSchemaFiles } = await import('./core/db/index.js')
 	const files = await listSchemaFiles()
 
 	if (files.length === 0) {
@@ -181,8 +164,8 @@ const commandDbApply = async () => {
 
 const commandSchemaPull = async () => {
 	const { tablesByDatabase } = await import('./core/jobs/registry.js')
-	const { createRefReader } = await import('./core/db/ref-reader.js')
-	const { pullSchemas } = await import('./core/db/schema-files.js')
+	const { createRefReader } = await import('./core/db/index.js')
+	const { pullSchemas } = await import('./core/db/index.js')
 	const tables = tablesByDatabase()
 
 	if (tables.size === 0) {
@@ -233,7 +216,7 @@ const commandRun = async (jobName: string | undefined, values: Record<string, un
 
 const commandParity = async (jobName: string | undefined, values: Record<string, unknown>) => {
 	const { findJob } = await import('./core/jobs/registry.js')
-	const { createRefReader } = await import('./core/db/ref-reader.js')
+	const { createRefReader } = await import('./core/db/index.js')
 	const { getLogger } = await import('./config/index.js')
 
 	if (!jobName) throw new Error('Informe o job: npm run etl -- parity <job>')
@@ -319,14 +302,14 @@ const main = async (): Promise<number> => {
 
 main()
 	.then(async code => {
-		const { closePools } = await import('./core/db/pools.js')
+		const { closePools } = await import('./core/db/index.js')
 
 		await closePools()
 		process.exit(code)
 	})
 	.catch(async err => {
 		process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`)
-		const { closePools } = await import('./core/db/pools.js')
+		const { closePools } = await import('./core/db/index.js')
 
 		await closePools().catch(() => undefined)
 		process.exit(1)

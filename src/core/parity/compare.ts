@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import type { tRow } from '../db/writer.js'
+import type { tRow } from '../db/index.js'
 
 /**
  * Teste de paridade: compara, coluna a coluna, as linhas que o novo ETL montaria (em memória) com as que o ETL antigo

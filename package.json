@@ -20,8 +20,9 @@
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write \"**/*.{js,mjs,ts}\"",
 		"format:check": "prettier --check \"**/*.{js,mjs,ts}\"",
-		"db:up": "docker compose up -d",
-		"db:down": "docker compose down"
+		"db:up": "docker compose up -d --wait",
+		"db:down": "docker compose down",
+		"test:integration": "vitest run --config vitest.integration.config.ts"
 	},
 	"dependencies": {
 		"@google-analytics/data": "^7.3.0",

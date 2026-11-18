@@ -21,11 +21,11 @@ describe('env: travas de configuração', () => {
 		)
 	})
 
-	it.each(['10.0.0.5', 'db.cliente.com.br', '0.0.0.0'])('recusa destino fora do MySQL local: %s', host => {
+	it.each(['10.0.0.5', 'db.cliente.com.br', '0.0.0.0', 'mysql'])('recusa destino fora do MySQL local: %s', host => {
 		expect(() => parseEnv({ TARGET_DB_HOST: host })).toThrow(/MySQL local/)
 	})
 
-	it.each(['127.0.0.1', 'localhost', '::1', 'mysql'])('aceita destino local: %s', host => {
+	it.each(['127.0.0.1', 'localhost', '::1'])('aceita destino local: %s', host => {
 		expect(parseEnv({ TARGET_DB_HOST: host }).TARGET_DB_HOST).toBe(host)
 	})
 
@@ -35,6 +35,14 @@ describe('env: travas de configuração', () => {
 
 	it('recusa grupo VTEX preenchido pela metade', () => {
 		expect(() => parseEnv({ VTEX_MASCAVO_APP_KEY: 'chave' })).toThrow(/VTEX Mascavo.*incompleto/)
+	})
+
+	it('recusa destino com usuário sem senha', () => {
+		expect(() => parseEnv({ TARGET_DB_USER: 'etl_local' })).toThrow(/banco de destino.*incompleto/)
+	})
+
+	it('recusa propriedade GA4 sem o JSON da conta de serviço', () => {
+		expect(() => parseEnv({ GA4_MASCAVO_PROPERTY_ID: '123' })).toThrow(/conta de serviço/)
 	})
 
 	it('recusa ID de propriedade GA4 não numérico', () => {

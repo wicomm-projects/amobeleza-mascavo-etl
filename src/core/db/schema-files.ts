@@ -30,7 +30,12 @@ interface iSchemaFile {
 
 const listSchemaFiles = async (root: string = SCHEMA_DIR): Promise<iSchemaFile[]> => {
 	const files: iSchemaFile[] = []
-	const databases = await readdir(root, { withFileTypes: true }).catch(() => [])
+	// Só "pasta não existe" vira lista vazia; permissão ou caminho errado sobem como erro.
+	const databases = await readdir(root, { withFileTypes: true }).catch((err: NodeJS.ErrnoException) => {
+		if (err.code === 'ENOENT') return []
+
+		throw err
+	})
 
 	for (const entry of databases) {
 		if (!entry.isDirectory()) continue

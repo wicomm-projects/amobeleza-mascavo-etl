@@ -1,6 +1,6 @@
 import { BRANDS, type tBrand } from '../config/index.js'
 
-import { isRefConfigured } from './db/pools.js'
+import { isRefConfigured } from './db/index.js'
 import { SOURCES } from './jobs/registry.js'
 import type { iSource } from './jobs/types.js'
 

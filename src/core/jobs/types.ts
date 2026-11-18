@@ -1,8 +1,7 @@
 import type { Logger } from 'pino'
 
 import type { tBrand, tDatabase } from '../../config/index.js'
-import type { iRefReader } from '../db/ref-reader.js'
-import type { iWriteResult, iWriter } from '../db/writer.js'
+import type { iRefReader, iWriteResult, iWriter } from '../db/index.js'
 
 /**
  * Contrato entre o núcleo e os conectores (src/connectors/<fonte>/index.ts).
