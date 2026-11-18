@@ -127,4 +127,41 @@ describe('erro do banco sem dado pessoal', () => {
 		expect(lines.map(leaks)).toEqual([false, false, false])
 		expect(lines[0]).toContain('ER_DUP_ENTRY')
 	})
+
+	// Casos trazidos do PR #6 (sessão da VTEX, AMO-Q7), que este PR substitui.
+	it('esconde o SQL de um erro do driver guardado dentro de outro objeto', () => {
+		const lines: string[] = []
+		const stream = new Writable({
+			write(chunk, _encoding, done) {
+				lines.push(String(chunk))
+				done()
+			}
+		})
+		const logger = pino(
+			{ redact: { paths: REDACT_PATHS, censor: '[REDACTED]' }, serializers: { err: serializeError } },
+			stream
+		)
+
+		logger.error({ falha: { causa: driverError() } }, 'carga falhou')
+
+		expect(leaks(lines.join(''))).toBe(false)
+	})
+
+	it('continua escondendo as credenciais das fontes', () => {
+		const lines: string[] = []
+		const stream = new Writable({
+			write(chunk, _encoding, done) {
+				lines.push(String(chunk))
+				done()
+			}
+		})
+		const logger = pino(
+			{ redact: { paths: REDACT_PATHS, censor: '[REDACTED]' }, serializers: { err: serializeError } },
+			stream
+		)
+
+		logger.info({ request: { headers: { 'X-VTEX-API-AppToken': 'segredo-de-teste' } } }, 'GET')
+
+		expect(lines.join('')).not.toContain('segredo-de-teste')
+	})
 })

@@ -31,6 +31,8 @@ const REDACT_PATHS = [
 	// Erro do mysql2: o SQL montado e a mensagem do servidor carregam valores (dado pessoal).
 	'*.sql',
 	'*.sqlMessage',
+	'*.*.sql',
+	'*.*.sqlMessage',
 	'err.cause.sql',
 	'err.cause.sqlMessage'
 ]
