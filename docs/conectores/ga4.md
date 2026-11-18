@@ -62,7 +62,8 @@ carregue em janelas de ~1 mês (cota do GA4).
   `replaceAll`.
 - **Relatório vazio não toca na tabela** (o writer recusa lote vazio: resposta vazia por falha apagaria dado) e vira
   aviso no resumo.
-- Paginação: 100.000 linhas por página, até 20 páginas por relatório; acima disso, o job para e pede janela menor.
+- Paginação: 100.000 linhas por página, até 20 páginas por relatório; acima disso, o job para e pede janela menor. O
+  pedido sempre leva desempate por todas as dimensões, para a ordem ser a mesma de uma página para outra.
 
 ### Avisos no resumo (`notes`)
 

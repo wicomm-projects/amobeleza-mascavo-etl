@@ -91,6 +91,15 @@ const mergePages = (pages: iReportData[]): iReportData => {
 	)
 }
 
+/**
+ * Ordem da definição + desempate por todas as dimensões: com offset/limit, só uma ordem total garante que nenhuma linha
+ * se repita ou suma entre uma página e outra.
+ */
+const stableOrder = (request: iReportRequest): tOrderBy[] => [
+	...(request.orderBys ?? []),
+	...request.dimensions.map(dimensionName => ({ dimension: { dimensionName } }))
+]
+
 const createLiveReader = async (propertyId: string): Promise<iGa4Reader> => {
 	const client = await openClient()
 	const property = `properties/${propertyId}`
@@ -108,7 +117,7 @@ const createLiveReader = async (propertyId: string): Promise<iGa4Reader> => {
 						metrics: request.metrics.map(name => ({ name })),
 						dateRanges: [{ startDate: request.startDate, endDate: request.endDate }],
 						dimensionFilter: request.dimensionFilter,
-						orderBys: request.orderBys ? [...request.orderBys] : undefined,
+						orderBys: stableOrder(request),
 						keepEmptyRows: request.keepEmptyRows ?? false,
 						limit: PAGE_SIZE,
 						offset

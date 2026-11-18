@@ -1,5 +1,3 @@
-import type { Logger } from 'pino'
-
 import { getBrandConfig, type tBrand } from '../../config/index.js'
 import type { tRow } from '../../core/db/index.js'
 import { AppError } from '../../core/errors.js'
@@ -8,7 +6,7 @@ import type { iJob, iJobContext, iRunSummary } from '../../core/jobs/types.js'
 import { createFixtureReader, createLiveReader, type iGa4Reader, type iReportRequest, loadFixture } from './api.js'
 import { createChannelClassifier } from './de-para.js'
 import { GA4_TABLES, type iReportDefinition, reportsOf } from './reports.js'
-import type { iReportData } from './schemas.js'
+import type { iReportData, tFixture } from './schemas.js'
 import { collapseRows, toRows } from './transform.js'
 import { SAO_PAULO_TZ, addDays, type iDateWindow, resolveWindow } from './window.js'
 
@@ -110,40 +108,40 @@ const channelNotes = (unmapped: string[], ruleCount: number): string[] => {
 	]
 }
 
-const openReader = async (
-	brand: tBrand,
-	fixturePath?: string
-): Promise<{ reader: iGa4Reader; fallback?: iDateWindow }> => {
-	if (fixturePath) {
-		const fixture = await loadFixture(fixturePath)
-		const tables = new Set<string>(reportsOf(brand).map(definition => definition.table))
-		const unknown = Object.keys(fixture.reports).filter(table => !tables.has(table))
+/** Fixture da marca: só aceita tabela que a marca grava (pega erro de digitação no nome). */
+const loadBrandFixture = async (brand: tBrand, path: string): Promise<tFixture> => {
+	const fixture = await loadFixture(path)
+	const tables = new Set<string>(reportsOf(brand).map(definition => definition.table))
+	const unknown = Object.keys(fixture.reports).filter(table => !tables.has(table))
 
-		if (unknown.length > 0)
-			throw new AppError(`Fixture com tabela que a marca ${brand} não grava: ${unknown.join(', ')}`)
+	if (unknown.length > 0)
+		throw new AppError(`Fixture com tabela que a marca ${brand} não grava: ${unknown.join(', ')}`)
 
-		const fallback = fixture.dateRange
-			? { from: fixture.dateRange.startDate, to: fixture.dateRange.endDate }
-			: undefined
+	return fixture
+}
 
-		return { reader: createFixtureReader(fixture), fallback }
-	}
+/** Abre o leitor por último: tudo o que pode falhar antes (fixture, janela, De/Para) não deixa cliente gRPC aberto. */
+const openReader = async (brand: tBrand, fixture?: tFixture): Promise<iGa4Reader> => {
+	if (fixture) return createFixtureReader(fixture)
 
 	const ga4 = getBrandConfig(brand).ga4
 
 	if (!ga4) throw new AppError(`GA4 (${brand}): sem ID de propriedade no .env.`)
 
-	return { reader: await createLiveReader(ga4.propertyId) }
+	return createLiveReader(ga4.propertyId)
 }
 
 const readReports = async (
 	brand: tBrand,
-	ctx: iJobContext,
-	logger: Logger
+	{ options, logger }: iJobContext
 ): Promise<{ prepared: iPreparedTable[]; notes: string[] }> => {
-	const { reader, fallback } = await openReader(brand, ctx.options.fixture)
-	const window = resolveWindow({ from: ctx.options.from, to: ctx.options.to, fallback, days: WINDOW_DAYS })
+	const fixture = options.fixture ? await loadBrandFixture(brand, options.fixture) : undefined
+	const fallback = fixture?.dateRange
+		? { from: fixture.dateRange.startDate, to: fixture.dateRange.endDate }
+		: undefined
+	const window = resolveWindow({ from: options.from, to: options.to, fallback, days: WINDOW_DAYS })
 	const channel = createChannelClassifier()
+	const reader = await openReader(brand, fixture)
 	const prepared: iPreparedTable[] = []
 	const notes: string[] = []
 
@@ -193,7 +191,7 @@ const runGa4 = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 	if (!brand) throw new AppError('O job ga4 roda por marca: informe --brand.')
 
-	const { prepared, notes } = await readReports(brand, ctx, ctx.logger)
+	const { prepared, notes } = await readReports(brand, ctx)
 
 	const { results } = await ctx.writer.transaction(async tx => {
 		for (const { definition, window, rows } of prepared) {
