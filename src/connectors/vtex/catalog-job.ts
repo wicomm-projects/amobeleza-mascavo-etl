@@ -15,7 +15,8 @@ import { productIdOf, toCategoryTreeRows, toProductRow, toSkusAndProductsRows } 
  * vtex-catalog — catálogo da loja da marca, 1x por dia.
  *
  * 1. GetProductAndSkuIds, de 250 em 250 (teto da API), até cobrir o total → vtex_skus_and_products_id (replaceAll).
- * 2. Cadastro de cada produto → vtex_products (upsert por id; produto que sumiu do catálogo continua na tabela).
+ * 2. Cadastro de cada produto → vtex_products (upsert por id; produto que sumiu do catálogo continua na tabela). Só
+ *    nas marcas de WRITES_PRODUCTS: a Amobeleza não grava (tabela parada desde 2024, nenhum relatório lê).
  * 3. Árvore de categorias → vtex_category_tree (replaceAll).
  *
  * replaceAll recusa lote vazio: catálogo vazio vindo da API derruba a carga em vez de apagar as tabelas. Página vazia
@@ -32,6 +33,21 @@ const CATEGORY_TREE_LEVELS = 3
 /** 1x por dia, 05:15 (fuso de São Paulo, no agendador). */
 const SCHEDULE_DAILY = '15 5 * * *'
 const MAX_IDS_IN_NOTES = 10
+
+/**
+ * Quais marcas gravam vtex_products. Na Amobeleza, não (decisão do Matheus, AMO-Q18, 24/11/2026): na produção a tabela
+ * foi gravada uma única vez, em 02/09/2024, e o ETL antigo nunca mais a atualizou; pela doc da WPP nenhum dos 5
+ * relatórios da Amobeleza a lê (o Web Analytics pega produto do ERP). Sem ela, o job não lê o cadastro de cada produto
+ * (~27 mil chamadas por dia). Para voltar a gravar, basta trocar para true.
+ */
+const WRITES_PRODUCTS: Readonly<Record<tBrand, boolean>> = { mascavo: true, amobeleza: false }
+
+const writesProducts = (brand?: tBrand): boolean => (brand ? WRITES_PRODUCTS[brand] : false)
+
+const catalogTablesOf = (brand?: tBrand): readonly string[] =>
+	writesProducts(brand)
+		? [CATALOG_TABLES.products, CATALOG_TABLES.skusAndProducts, CATALOG_TABLES.categoryTree]
+		: [CATALOG_TABLES.skusAndProducts, CATALOG_TABLES.categoryTree]
 
 interface iCatalogData {
 	skusByProduct: Map<number, number[]>
@@ -103,6 +119,20 @@ const listProductAndSkuIds = async (api: Pick<iVtexApi, 'getProductAndSkuIds'>):
 const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iCatalogData> => {
 	const api = createBrandApi(brand)
 	const skusByProduct = await listProductAndSkuIds(api)
+
+	if (!writesProducts(brand)) {
+		const tree = await api.getCategoryTree(CATEGORY_TREE_LEVELS)
+
+		return {
+			skusByProduct,
+			products: [],
+			tree,
+			notes: [
+				`${skusByProduct.size} produto(s) no catálogo; cadastro não lido (${brand} não grava vtex_products)`
+			]
+		}
+	}
+
 	const productIds = [...skusByProduct.keys()]
 	const settled = await runWithConcurrency(
 		productIds.map(id => () => api.getProduct(id)),
@@ -162,11 +192,13 @@ const fetchFromFixture = async (file: string): Promise<iCatalogData> => {
 const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const brand = requireBrand(ctx.brand)
 	const data = ctx.options.fixture ? await fetchFromFixture(ctx.options.fixture) : await fetchFromApi(ctx, brand)
-	// Produto fora do formato das colunas (ex.: sem RefId, NOT NULL) fica de fora; a linha antiga dele continua.
+	// Produto fora do formato das colunas fica de fora; a linha antiga dele continua. Marca que não grava vtex_products
+	// (Amobeleza) ignora os cadastros, inclusive os de uma fixture.
 	const productRows: tRow[] = []
 	const invalidProductIds: number[] = []
+	const products = writesProducts(brand) ? data.products : []
 
-	for (const product of data.products) {
+	for (const product of products) {
 		try {
 			productRows.push(toProductRow(product))
 		} catch (err) {
@@ -180,7 +212,8 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 	const { results } = await ctx.writer
 		.transaction(async tx => {
-			await tx.upsert(CATALOG_TABLES.products, productRows, { keyColumns: ['id'] })
+			if (writesProducts(brand)) await tx.upsert(CATALOG_TABLES.products, productRows, { keyColumns: ['id'] })
+
 			await tx.replaceAll(CATALOG_TABLES.skusAndProducts, skuRows)
 			await tx.replaceAll(CATALOG_TABLES.categoryTree, tree.rows)
 		})
@@ -210,7 +243,7 @@ const catalogJob: iJob = {
 	source: 'vtex',
 	scope: 'brand',
 	description: 'Catálogo VTEX: produtos, mapa produto → SKUs e árvore de categorias',
-	tables: [CATALOG_TABLES.products, CATALOG_TABLES.skusAndProducts, CATALOG_TABLES.categoryTree],
+	tables: catalogTablesOf,
 	database: databaseOf,
 	schedule: SCHEDULE_DAILY,
 	run
