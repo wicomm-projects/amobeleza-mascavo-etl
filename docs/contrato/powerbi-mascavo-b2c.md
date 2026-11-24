@@ -130,19 +130,17 @@ diário e hora seguem a página de cima.
 | metas gab                      | sim      | sim     | sim           | `metas_gerais`, `filial_tipo`     | sim                      | `produtos`                    |
 | Glossário                      | —        | —       | —             | —                                 | —                        | —                             |
 
-## Divergências com o ETL novo (resolver antes da primeira carga real)
+## Divergências com o ETL novo
 
 1. **Árvore de categorias (`vtex_category_tree`).** O Power BI liga o `id` de uma linha ao `sub_category_id` das
    filhas, com a raiz em `sub_category_id = 0`. Ou seja, `id` é o ID da categoria na VTEX e `sub_category_id` é o ID do
-   pai. O ETL novo deixa `id` para o auto incremento e grava em `sub_category_id` o ID da **própria** categoria
-   (`src/connectors/vtex/transform-catalog.ts`). Do jeito que está, Departamento → Categoria → Subcategoria sairia
-   errado. Confirmar nas 22 linhas da produção (SELECT só leitura) e corrigir na etapa 1.
+   pai. **Resolvido** em 24/11/2026: confirmado nas duas marcas (só leitura) e o ETL novo passou a gravar assim
+   (`src/connectors/vtex/transform-catalog.ts`).
 2. **Centavos fora de `vtex_orders`.** O Power BI só divide por 100 o `vtex_orders.total_value`. Os itens
    (`quantity × sellingprice`), `totals_shipping` e `totals_discounts` entram sem divisão e somados com os valores do
-   AnyMarket, que estão em reais. É indício forte de que na produção esses campos estão em **reais**; o ETL novo grava
-   em centavos (`convencoes.md` deixou para confirmar). Se confirmado, Receita bruta, Frete e Desconto sairiam 100 vezes
-   maiores. Confirmar comparando, em alguns pedidos da produção, `total_value` com `totals_items + totals_shipping +
-totals_discounts`.
+   AnyMarket, que estão em reais. **Resolvido** em 24/11/2026: na produção (só leitura, duas marcas) só
+   `vtex_orders.total_value` está em centavos; as colunas decimal de detalhes, itens, logística, pagamentos e
+   vale-presente estão em reais, e o ETL novo passou a gravar assim (`toReais` em `src/connectors/vtex/values.ts`).
 3. **`vtex_skus`.** A consulta de produtos faz LEFT JOIN em `mascavo_etl.vtex_skus` sem usar nenhuma coluna dela. O ETL
    novo não grava essa tabela; ela só precisa continuar existindo na produção para a consulta não quebrar.
 4. **`vehicle_channel_no_pay` e `type` do GA4.** As páginas de canais agrupam por esses dois campos. Até o De/Para ficar

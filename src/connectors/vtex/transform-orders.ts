@@ -2,14 +2,16 @@ import type { tRow } from '../../core/db/index.js'
 
 import type { tListOrder, tOrderDetail } from './schemas.js'
 import { ORDER_TABLES, type tOrderChildTable } from './tables.js'
-import { flag, required, toInt, toJson, toText, toUtcDate } from './values.js'
+import { flag, required, toInt, toJson, toReais, toText, toUtcDate } from './values.js'
 
 /**
  * Transformações puras: resposta da VTEX → linhas das tabelas antigas, com a grafia exata do dicionário
  * (docs/contrato/mascavo_etl.md). Sem I/O, sem relógio: a mesma entrada dá sempre a mesma saída.
  *
- * Convenções (docs/contrato/convencoes.md): dinheiro em centavos como a VTEX manda; datas em UTC sem fração; status em
- * inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo. Em coluna NOT NULL, valor
+ * Convenções (docs/contrato/convencoes.md): dinheiro em centavos só em `vtex_orders.total_value` e em reais nas colunas
+ * decimal das outras tabelas (`toReais`, como o ETL antigo); colunas int de valor ficam como a VTEX manda; datas em UTC
+ * sem fração; status em inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo. Em
+ * coluna NOT NULL, valor
  * ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a transação inteira. A
  * exceção são 7 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
  *
@@ -99,7 +101,7 @@ const OLD_ETL_FALLBACK = {
 	refId: '-',
 	/** taxcode sem código fiscal. */
 	taxCode: '',
-	/** costprice: sempre preenchido nas amostras; *assumido, a confirmar na paridade*. */
+	/** costprice: preenchido em todas as amostras da produção (em reais); 0 só se a VTEX não mandar. *Assumido.* */
 	costPrice: 0,
 	/** Endpoint de serviços do marketplace: o padrão do OMS com a conta. */
 	marketplaceServicesEndpoint: (account: string) => `http://oms.vtexinternal.com.br/api/oms?an=${account}`
@@ -137,14 +139,14 @@ const toDetailRow = (detail: tOrderDetail, context: iDetailContext): tRow => {
 		merchant_name: detail.merchantName ?? null,
 		status: detail.status,
 		status_description: required(detail.statusDescription, column('status_description')),
-		value: detail.value,
+		value: toReais(detail.value),
 		creation_date: required(toUtcDate(detail.creationDate), column('creation_date')),
 		last_change: required(toUtcDate(detail.lastChange), column('last_change')),
 		order_group: detail.orderGroup ?? detail.orderId.replace(ORDER_SUFFIX, ''),
-		totals_items: totalOf(detail, TOTAL_IDS.items),
-		totals_discounts: totalOf(detail, TOTAL_IDS.discounts),
-		totals_shipping: totalOf(detail, TOTAL_IDS.shipping),
-		totals_taxes: totalOf(detail, TOTAL_IDS.taxes),
+		totals_items: toReais(totalOf(detail, TOTAL_IDS.items)),
+		totals_discounts: toReais(totalOf(detail, TOTAL_IDS.discounts)),
+		totals_shipping: toReais(totalOf(detail, TOTAL_IDS.shipping)),
+		totals_taxes: toReais(totalOf(detail, TOTAL_IDS.taxes)),
 		followup_email: required(detail.followUpEmail, column('followup_email')),
 		hostname: detail.hostname,
 		opentextfield: openText(detail.openTextField),
@@ -177,8 +179,8 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			seller: required(toInt(item.seller, field('seller')), field('seller')),
 			name: toText(item.name),
 			refid: item.refId ?? OLD_ETL_FALLBACK.refId,
-			price: item.price,
-			listprice: item.listPrice,
+			price: toReais(item.price),
+			listprice: toReais(item.listPrice),
 			manualprice: item.manualPrice ?? null,
 			imageurl: toText(item.imageUrl),
 			detailurl: toText(item.detailUrl),
@@ -189,13 +191,13 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			additionalinfo: JSON.stringify(item.additionalInfo ?? null),
 			measurementunit: required(item.measurementUnit, field('measurementunit')),
 			unitmultiplier: required(item.unitMultiplier, field('unitmultiplier')),
-			sellingprice: required(item.sellingPrice, field('sellingprice')),
+			sellingprice: toReais(required(item.sellingPrice, field('sellingprice'))),
 			isgift: required(flag(item.isGift), field('isgift')),
-			shippingprice: item.shippingPrice ?? null,
+			shippingprice: toReais(item.shippingPrice),
 			rewardvalue: required(item.rewardValue, field('rewardvalue')),
 			freightcommission: required(item.freightCommission, field('freightcommission')),
 			taxcode: item.taxCode ?? OLD_ETL_FALLBACK.taxCode,
-			costprice: item.costPrice ?? OLD_ETL_FALLBACK.costPrice
+			costprice: toReais(item.costPrice ?? OLD_ETL_FALLBACK.costPrice)
 		}
 	})
 
@@ -212,9 +214,9 @@ const toLogisticsInfoRows = (detail: tOrderDetail): tRow[] =>
 		item_index: info.itemIndex,
 		selected_sla: info.selectedSla ?? null,
 		lock_ttl: info.lockTTL ?? null,
-		price: info.price ?? null,
-		list_price: info.listPrice ?? null,
-		selling_price: info.sellingPrice ?? null,
+		price: toReais(info.price),
+		list_price: toReais(info.listPrice),
+		selling_price: toReais(info.sellingPrice),
 		delivery_window: toText(info.deliveryWindow),
 		delivery_company: info.deliveryCompany ?? null,
 		delivery_channel: info.deliveryChannel ?? null,
@@ -274,9 +276,9 @@ const toPaymentRows = (detail: tOrderDetail): tRow[] =>
 			payment_id: payment.id,
 			payment_system: toText(payment.paymentSystem),
 			payment_system_name: payment.paymentSystemName,
-			value: payment.value ?? null,
+			value: toReais(payment.value),
 			installments: payment.installments ?? null,
-			reference_value: payment.referenceValue ?? null,
+			reference_value: toReais(payment.referenceValue),
 			redemption_code: payment.redemptionCode ?? null,
 			gift_card_id: payment.giftCardId ?? null,
 			gift_card_name: payment.giftCardName ?? null,
@@ -295,8 +297,8 @@ const toGiftCardRows = (detail: tOrderDetail): tRow[] =>
 		redemption_code: card.redemptionCode ?? null,
 		name: card.name ?? null,
 		caption: card.caption ?? null,
-		value: card.value ?? null,
-		balance: card.balance ?? null,
+		value: toReais(card.value),
+		balance: toReais(card.balance),
 		provider: card.provider ?? null,
 		group_name: card.groupName ?? null,
 		in_use: flag(card.inUse),

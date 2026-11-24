@@ -66,20 +66,40 @@ const productIdOf = (key: string): number => {
 	return id
 }
 
+/** `sub_category_id` da raiz ("0 quando é nó raiz", dicionário). */
+const ROOT_PARENT_ID = 0
+/** `sub_category_id` é `int` com sinal: o ID do pai precisa caber nele. */
+const MAX_SIGNED_INT = 2_147_483_647
+
+const fitsColumn = (id: number): boolean => Number.isInteger(id) && id > 0 && id <= MAX_SIGNED_INT
+
 /**
- * vtex_category_tree — a árvore achatada, um nó por linha, `id` técnico (não vai na linha).
- * - Departamento (raiz): `department` nulo e `sub_category_id` 0 ("0 quando é nó raiz", dicionário).
- * - Categoria abaixo dele: `department` = nome do departamento e `sub_category_id` = ID da categoria na VTEX.
- * A regra exata do ETL antigo para `department` e `sub_category_id` não está documentada: confirmar na paridade.
- * Nó sem título ou meta description (NOT NULL) fica de fora, com o ID em `skippedIds`; os filhos dele seguem.
+ * vtex_category_tree — a árvore achatada, um nó por linha. Como o ETL antigo (medido na produção, só leitura,
+ * 24/11/2026, nas duas marcas) e como o Power BI lê (liga o `id` do pai ao `sub_category_id` dos filhos):
+ * - `id` = ID da categoria na VTEX (a coluna é AUTO_INCREMENT, mas o valor vai explícito);
+ * - `sub_category_id` = ID da categoria pai na VTEX, ou 0 na raiz.
+ * - `department`: nulo na raiz e, abaixo dela, o nome do departamento. O ETL antigo gravava outra coisa (as raízes
+ *   levam o nome da primeira raiz); o Power BI B2C da Mascavo não lê essa coluna: confirmar na paridade.
+ * Nó sem título ou meta description (NOT NULL) fica de fora, com o ID em `skippedIds`; os filhos dele seguem. Também
+ * fica de fora o nó com ID repetido ou que não cabe na coluna (e o filho cujo pai não cabe): com `id` na PK, o MySQL
+ * recusaria o INSERT e derrubaria a carga inteira do catálogo.
  */
 const toCategoryTreeRows = (tree: readonly iCategoryNode[]): { rows: tRow[]; skippedIds: number[] } => {
 	const rows: tRow[] = []
 	const skippedIds: number[] = []
+	const seenIds = new Set<number>()
 
-	const visit = (node: iCategoryNode, department: string | null) => {
+	const visit = (node: iCategoryNode, department: string | null, parentId: number) => {
+		const parentFits = parentId === ROOT_PARENT_ID || fitsColumn(parentId)
+
 		try {
+			if (seenIds.has(node.id) || !fitsColumn(node.id) || !parentFits) {
+				throw new AppError(`categoria ${node.id}: ID repetido ou fora da faixa da coluna`)
+			}
+
+			seenIds.add(node.id)
 			rows.push({
+				id: node.id,
 				name: toText(node.name),
 				department: department === null ? null : toText(department),
 				has_children: flag(node.hasChildren),
@@ -88,16 +108,16 @@ const toCategoryTreeRows = (tree: readonly iCategoryNode[]): { rows: tRow[]; ski
 				meta_tag_description: toText(
 					required(node.MetaTagDescription, `categoria ${node.id} meta_tag_description`)
 				),
-				sub_category_id: department === null ? 0 : node.id
+				sub_category_id: parentId
 			})
 		} catch {
 			skippedIds.push(node.id)
 		}
 
-		node.children.forEach(child => visit(child, department ?? node.name))
+		node.children.forEach(child => visit(child, department ?? node.name, node.id))
 	}
 
-	tree.forEach(root => visit(root, null))
+	tree.forEach(root => visit(root, null, ROOT_PARENT_ID))
 
 	return { rows, skippedIds }
 }
