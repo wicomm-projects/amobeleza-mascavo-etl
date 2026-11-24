@@ -16,7 +16,7 @@ chegar, basta preencher o `.env` e rodar `npm run etl -- check-access --source v
 | Job            | Quando                         | Tabelas                                                                                                                                                                                                                                                                                                          |
 | -------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vtex-orders`  | a cada 30 min (`*/30 * * * *`) | `vtex_orders`, `vtex_order_details`, `vtex_order_items`, `vtex_order_logistics_info`, `vtex_order_logistics_delivery_ids`, `vtex_order_shipping_data`, `vtex_order_payment_transactions`, `vtex_order_payment_transactions_payments`, `vtex_order_payment_gift_cards`, `vtex_order_rates`, `vtex_client_profile` |
-| `vtex-catalog` | 1x/dia, 05:15 (`15 5 * * *`)   | `vtex_products`, `vtex_skus_and_products_id`, `vtex_category_tree`                                                                                                                                                                                                                                               |
+| `vtex-catalog` | 1x/dia, 05:15 (`15 5 * * *`)   | `vtex_products` (só Mascavo), `vtex_skus_and_products_id`, `vtex_category_tree`                                                                                                                                                                                                                                  |
 
 Horários no fuso de São Paulo; o agendador só liga com `SCHEDULER_ENABLED=true` (depois da liberação).
 
@@ -196,8 +196,11 @@ não mudaram é lido do próprio `vtex_orders` antes de regravar. _Assumido, a c
   `produto`, `barra_ean`, `marca`, `departamento`, `categoria`). O Power BI da Amobeleza não a lê (as consultas VTEX
   dele usam `vtex_orders`, `vtex_order_details`, `vtex_order_items`, `vtex_order_shipping_data` e
   `vtex_client_profile`). Entra numa fase de catálogo se alguém usar.
-- Na Amobeleza, `vtex_products` estava "sem atualização" no levantamento (o ETL antigo já não atualizava). O
-  `vtex-catalog` volta a atualizar; o Power BI da Amobeleza não lê a tabela.
+- Na Amobeleza, o `vtex-catalog` **não grava `vtex_products`** (decisão AMO-Q18, 24/11/2026). Na produção a tabela
+  foi gravada uma única vez, em 02/09/2024 (16.358 produtos), e o ETL antigo nunca mais a atualizou; pela doc da WPP
+  nenhum dos 5 relatórios da Amobeleza a lê (o Web Analytics pega produto do ERP). Sem ela, o job não lê o cadastro de
+  cada produto (~27 mil chamadas/dia). Para voltar a gravar: `WRITES_PRODUCTS` em `catalog-job.ts`. Na Mascavo, o
+  B2C usa a tabela e ela segue sendo gravada.
 
 O que o Power BI da Amobeleza faz com os dados reforça duas convenções: `total_value ÷ 100` (centavos) e "subtrai 3 h"
 (UTC); e em `vtex_client_profile` aplica "tipo em minúsculas → PF/PJ", compatível com `documentType` (`cpf`/`cnpj`).
