@@ -10,6 +10,18 @@ import { flag, required, toText } from './values.js'
  * NULL sem valor lança (`required`): só aquele produto ou nó fica fora da carga.
  */
 
+/**
+ * `ref_id` é NOT NULL. Produto sem código de referência na VTEX: o ETL antigo gravava "1". Medido na produção (só
+ * leitura, 24/11/2026): os 10 produtos que hoje vêm sem RefId estão lá com ref_id = "1", como vários outros.
+ */
+const OLD_ETL_PRODUCT_REF_ID = '1'
+
+const refIdOf = (product: tProduct): string => {
+	const refId = toText(product.RefId)
+
+	return refId === null || refId.trim() === '' ? OLD_ETL_PRODUCT_REF_ID : refId
+}
+
 /** vtex_products — PK id (ID do produto na VTEX). */
 const toProductRow = (product: tProduct): tRow => ({
 	id: product.Id,
@@ -18,7 +30,7 @@ const toProductRow = (product: tProduct): tRow => ({
 	category_id: product.CategoryId,
 	brand_id: product.BrandId,
 	link_id: toText(product.LinkId),
-	ref_id: toText(required(product.RefId, `produto ${product.Id} ref_id`)),
+	ref_id: refIdOf(product),
 	is_visible: flag(product.IsVisible),
 	description: toText(product.Description),
 	description_short: toText(product.DescriptionShort),
