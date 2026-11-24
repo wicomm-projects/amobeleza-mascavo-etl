@@ -58,14 +58,40 @@ const normalize = (value: unknown): string | null => {
 
 	if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)))
 
-	if (typeof value === 'object') return JSON.stringify(value)
+	if (typeof value === 'object') return JSON.stringify(sortKeys(value))
 
 	const text = String(value)
 
 	// "12.50" e "12.5" são o mesmo decimal.
 	if (/^-?\d+(\.\d+)?$/.test(text)) return String(Number(text))
 
-	return text
+	return normalizeJsonText(text) ?? text
+}
+
+/** Mesmo JSON com as chaves em ordem: a coluna JSON do MySQL reordena as chaves ao gravar. */
+const sortKeys = (value: unknown): unknown => {
+	if (Array.isArray(value)) return value.map(sortKeys)
+
+	if (value === null || typeof value !== 'object') return value
+
+	return Object.fromEntries(
+		Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, inner]) => [key, sortKeys(inner)])
+	)
+}
+
+/** Texto que é objeto ou lista JSON → JSON com chaves ordenadas; qualquer outro texto → null. */
+const normalizeJsonText = (text: string): string | null => {
+	const trimmed = text.trim()
+
+	if (!/^[[{]/.test(trimmed)) return null
+
+	try {
+		return JSON.stringify(sortKeys(JSON.parse(trimmed)))
+	} catch {
+		return null
+	}
 }
 
 const keyOf = (row: tRow, keyColumns: string[]) => keyColumns.map(column => normalize(row[column]) ?? '∅').join('|')

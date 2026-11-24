@@ -36,13 +36,41 @@ const redactPersonal = (table: string, results: iCompareResult): iCompareResult 
 	}
 }
 
-/** `divergent` = linhas da produção sem igual no novo (inclui as que não têm par). */
-const summarize = (results: iCompareResult[]): iParitySummary['tables'] =>
-	results.map(result => ({
-		table: result.table,
-		compared: result.compared,
-		divergent: result.compared - result.matched
-	}))
+/** Colunas com diferença conhecida e aceita, por tabela (sem o sufixo de grupo), com o motivo. */
+type tAcceptedDifferences = Readonly<Partial<Record<string, Readonly<Record<string, string>>>>>
+
+/** Nome da tabela sem o sufixo de grupo (" (mudou depois)"). */
+const baseTable = (table: string): string => table.replace(/ \(.*\)$/, '')
+
+/**
+ * `divergent` = linhas da produção sem par no novo, mais as que têm diferença em alguma coluna que NÃO está em
+ * `accepted`. As diferenças aceitas continuam no relatório (diffs) e entram nas notas (`acceptedNotes`).
+ */
+const summarize = (results: iCompareResult[], accepted: tAcceptedDifferences = {}): iParitySummary['tables'] =>
+	results.map(result => {
+		const acceptedColumns = accepted[baseTable(result.table)] ?? {}
+		const unexpectedKeys = new Set(
+			result.diffs.filter(diff => !(diff.column in acceptedColumns)).map(diff => diff.key)
+		)
+
+		return {
+			table: result.table,
+			compared: result.compared,
+			divergent: result.missingInNew.length + unexpectedKeys.size
+		}
+	})
+
+/** Uma nota por coluna aceita que divergiu: quantas linhas e o motivo. */
+const acceptedNotes = (results: iCompareResult[], accepted: tAcceptedDifferences): string[] =>
+	results.flatMap(result => {
+		const acceptedColumns = accepted[baseTable(result.table)] ?? {}
+
+		return Object.entries(result.divergentByColumn)
+			.filter(([column]) => column in acceptedColumns)
+			.map(
+				([column, rows]) => `aceita: ${result.table}.${column} em ${rows} linha(s) — ${acceptedColumns[column]}`
+			)
+	})
 
 /** Notas de linhas que o novo ETL montou e a produção não tem (só contagem). */
 const extraNotes = (results: iCompareResult[]): string[] =>
@@ -53,4 +81,5 @@ const extraNotes = (results: iCompareResult[]): string[] =>
 /** `db`.`tabela`. O banco vem de `ctx.database` (tipo fechado) e a tabela das constantes de tables.ts. */
 const qualified = (database: string, table: string): string => `\`${database}\`.\`${table}\``
 
-export { extraNotes, pickSample, qualified, redactPersonal, summarize }
+export { acceptedNotes, extraNotes, pickSample, qualified, redactPersonal, summarize }
+export type { tAcceptedDifferences }

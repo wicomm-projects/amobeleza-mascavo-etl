@@ -176,3 +176,20 @@ Depois, na sessão principal (não no executor): rodar a paridade real com o tú
 
 Médio-baixo: só leitura na produção e na VTEX, nada é gravado. O ponto de atenção é dado pessoal no relatório
 (`redactPersonal`) e consultas sempre com `LIMIT` e por chave.
+
+## Resultado (24/11/2026)
+
+Implementado e rodado contra a produção (só leitura). O resultado e as diferenças aceitas estão em
+`docs/conectores/vtex.md`, na seção "Paridade com a produção".
+
+Mudanças em relação a este plano, por causa da paridade real:
+
+- Na Mascavo, o ETL antigo nunca atualizava o pedido. Por isso os pedidos que mudaram depois também entram na
+  comparação, num grupo próprio, sem as colunas de andamento (`VOLATILE_COLUMNS`), em vez de só serem contados.
+- `ACCEPTED_DIFFERENCES` (pedidos e catálogo): diferenças conhecidas, com o motivo. Ficam no relatório e não contam
+  como divergência.
+- A comparação de JSON é feita pelo conteúdo, porque a coluna JSON do MySQL reordena as chaves.
+- Correções no ETL achadas pela paridade:
+    - `payment_id` = `"0"` quando a VTEX manda o pagamento sem id (pedido de marketplace);
+    - `order_group` nulo quando a VTEX não manda;
+    - `seller_name` também para a própria loja.

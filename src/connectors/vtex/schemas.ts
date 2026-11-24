@@ -127,7 +127,8 @@ const addressSchema = z.object({
 })
 
 const paymentSchema = z.object({
-	id: z.string(),
+	// Pedido de marketplace (ex.: Panvel, "PVL-") vem com o pagamento sem id: o ETL antigo gravava "0" (transform-orders.ts).
+	id: nullableText,
 	paymentSystem: numberOrText,
 	paymentSystemName: z.string(),
 	value: nullableNumber,

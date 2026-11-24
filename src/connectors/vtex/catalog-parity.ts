@@ -7,7 +7,15 @@ import { compareRows, type iCompareResult, writeParityReport } from '../../core/
 
 import { CATEGORY_TREE_LEVELS, listProductAndSkuIds, writesProducts } from './catalog-job.js'
 import { createBrandApi, type iVtexApi } from './client.js'
-import { extraNotes, pickSample, qualified, redactPersonal, summarize } from './parity-shared.js'
+import {
+	acceptedNotes,
+	extraNotes,
+	pickSample,
+	qualified,
+	redactPersonal,
+	summarize,
+	type tAcceptedDifferences
+} from './parity-shared.js'
 import type { tProduct } from './schemas.js'
 import { CATALOG_TABLES } from './tables.js'
 import { toCategoryTreeRows, toProductRow, toSkusAndProductsRows } from './transform-catalog.js'
@@ -23,6 +31,29 @@ const CATEGORY_TREE_LIMIT = 5000
 /** Linhas esperadas por produto no mapa (1; folga para duplicata do ETL antigo). */
 const MAP_ROWS_PER_PRODUCT = 5
 const STAMPS = ['created_at', 'updated_at']
+
+const SEO_EDITED = 'texto de SEO editado na VTEX depois da última carga do ETL antigo'
+
+/**
+ * Diferenças conhecidas com o ETL antigo, *assumidas, a confirmar* (paridade de 24/11/2026). Continuam no relatório
+ * completo, mas não contam como divergência.
+ */
+const ACCEPTED_DIFFERENCES: tAcceptedDifferences = {
+	[CATALOG_TABLES.categoryTree]: {
+		department:
+			'o ETL antigo dava às raízes o nome da primeira raiz; o novo grava nulo na raiz (conferir no Power BI da Amobeleza)',
+		title: SEO_EDITED,
+		meta_tag_description: SEO_EDITED
+	},
+	[CATALOG_TABLES.products]: {
+		description: 'o ETL antigo gravava "0"; o novo grava o texto da VTEX (nenhum relatório lê)',
+		description_short: 'o ETL antigo gravava "0"; o novo grava o texto da VTEX (nenhum relatório lê)',
+		key_words: 'o ETL antigo gravava "0"; o novo grava o texto da VTEX (nenhum relatório lê)',
+		meta_tag_description: 'o ETL antigo gravava "0"; o novo grava o texto da VTEX (nenhum relatório lê)',
+		ad_words_remarketing_code: 'o ETL antigo gravava "0"; o novo grava o que a VTEX manda (nenhum relatório lê)',
+		title: SEO_EDITED
+	}
+}
 
 interface iCatalogParityDeps {
 	api?: Pick<iVtexApi, 'getProductAndSkuIds' | 'getProduct' | 'getCategoryTree'>
@@ -156,14 +187,15 @@ const catalogParity = async (ctx: iParityContext, deps: iCatalogParityDeps = {})
 		database: ctx.database,
 		sample: productIds.length,
 		productsInCatalog: skusByProduct.size,
-		writesProducts: writes
+		writesProducts: writes,
+		acceptedDifferences: ACCEPTED_DIFFERENCES
 	}
 	const reportPath = await writeReport(`vtex-catalog-${brand}`, redacted, meta)
 
 	notes.unshift(`${skusByProduct.size} produto(s) no catálogo, amostra de ${productIds.length}`)
-	notes.push(...extraNotes(redacted))
+	notes.push(...extraNotes(redacted), ...acceptedNotes(redacted, ACCEPTED_DIFFERENCES))
 
-	return { reportPath, tables: summarize(redacted), notes }
+	return { reportPath, tables: summarize(redacted, ACCEPTED_DIFFERENCES), notes }
 }
 
 export { catalogParity }

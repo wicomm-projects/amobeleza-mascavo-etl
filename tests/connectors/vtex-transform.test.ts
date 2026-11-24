@@ -103,6 +103,25 @@ describe('valores dos pedidos: só vtex_orders.total_value fica em centavos', ()
 		expect(item).toMatchObject({ commission: 2500, tax: 150, freightcommission: 800, rewardvalue: 1599 })
 	})
 
+	it('pagamento sem id (pedido de marketplace) grava "0", como o ETL antigo', async () => {
+		const detail = await firstOf()
+		const [transaction] = detail.paymentData?.transactions ?? []
+		const [payment] = transaction?.payments ?? []
+
+		if (!transaction || !payment) throw new Error('fixture sem pagamento')
+
+		const semId = {
+			...detail,
+			paymentData: {
+				...detail.paymentData,
+				transactions: [{ ...transaction, payments: [{ ...payment, id: null }] }]
+			}
+		} as typeof detail
+		const [row] = toPaymentRows(semId)
+
+		expect(row?.payment_id).toBe('0')
+	})
+
 	it('logística e pagamentos em reais', async () => {
 		const detail = await firstOf()
 		const [logistics] = toLogisticsInfoRows(detail)

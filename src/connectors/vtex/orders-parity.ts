@@ -7,7 +7,15 @@ import { DEFAULT_IGNORED, compareRows, type iCompareResult, writeParityReport } 
 
 import { accountOf, createBrandApi, type iVtexApi } from './client.js'
 import { listOrdersInWindow } from './orders-window.js'
-import { extraNotes, pickSample, qualified, redactPersonal, summarize } from './parity-shared.js'
+import {
+	acceptedNotes,
+	extraNotes,
+	pickSample,
+	qualified,
+	redactPersonal,
+	summarize,
+	type tAcceptedDifferences
+} from './parity-shared.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName } from './tables.js'
 import { type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
@@ -18,8 +26,12 @@ import { saoPauloWallClock, toComparableUtc, toUtcDate } from './values.js'
  * pedidos de uma janela antiga e compara com o que o ETL antigo gravou na produção (só SELECT por chave, com LIMIT).
  * Nada é gravado em banco nenhum.
  *
- * Só entram na comparação estrita os pedidos "estáveis": o last_change do detalhe na VTEX é igual ao gravado pelo ETL
- * antigo. Pedido que mudou depois disso só é contado (o ETL antigo parou antes da mudança).
+ * Dois grupos, cada um com o seu resultado por tabela:
+ * - estáveis: o last_change do detalhe na VTEX é igual ao gravado pelo ETL antigo → comparação estrita;
+ * - mudou depois: a VTEX mudou o pedido depois que o ETL antigo gravou. Na Mascavo é a regra: o ETL antigo gravava o
+ *   pedido uma vez e não atualizava mais (medido em 24/11/2026: 0 de 200 pedidos de agosto com o status de hoje). Esses
+ *   pedidos entram com as colunas que mudam com o andamento (VOLATILE_COLUMNS) fora da comparação, e o nome da tabela
+ *   no relatório leva o sufixo " (mudou depois)".
  */
 
 const DEFAULT_LAG_DAYS = 30
@@ -59,6 +71,78 @@ const TABLE_SPECS: iTableSpec[] = [
 	{ table: ORDER_TABLES.rates, keyColumns: ['order_id', 'id'], ignoreColumns: STAMPS },
 	{ table: ORDER_TABLES.clientProfile, keyColumns: ['id'], ignoreColumns: STAMPS }
 ]
+
+/** Colunas que mudam com o andamento do pedido (status, datas, travas): fora da comparação do grupo "mudou depois". */
+const VOLATILE_COLUMNS: Readonly<Partial<Record<string, readonly string[]>>> = {
+	[ORDER_TABLES.orders]: [
+		'status',
+		'status_description',
+		'last_change',
+		'order_is_complete',
+		'workflow_in_error_state',
+		'workflow_in_retry',
+		'authorized_date',
+		'is_all_delivered',
+		'is_any_delivered',
+		'ready_for_handling_date',
+		'shipping_estimated_date',
+		'shipping_estimated_date_max',
+		'shipping_estimated_date_min'
+	],
+	[ORDER_TABLES.details]: [
+		'status',
+		'status_description',
+		'last_change',
+		'authorizeddate',
+		'invoiceddate',
+		'iscompleted',
+		'allowcancellation',
+		'allowedition',
+		'ischeckedin'
+	],
+	[ORDER_TABLES.transactions]: ['is_active']
+}
+
+const CHANGED_SUFFIX = ' (mudou depois)'
+
+/**
+ * Diferenças conhecidas com o ETL antigo, *assumidas, a confirmar* (medidas na paridade de 24/11/2026). Nenhum
+ * relatório conhecido lê essas colunas, e o ETL antigo de cada marca gravava de um jeito: o ETL novo grava o que a VTEX
+ * manda. Continuam no relatório completo, mas não contam como divergência. Rever quando o Power BI da Amobeleza for
+ * conferido (AMO-Q24).
+ */
+const ACCEPTED_DIFFERENCES: tAcceptedDifferences = {
+	[ORDER_TABLES.orders]: {
+		total_items: 'o ETL antigo da Mascavo gravava 0 em todo pedido; o novo grava a quantidade da VTEX',
+		market_place_order_id:
+			'vazio sem marketplace: a Mascavo antiga gravava "", a Amobeleza nulo; o novo grava nulo',
+		shipping_estimated_date: 'o ETL antigo não preenchia; o novo grava a data da VTEX',
+		shipping_estimated_date_max: 'o ETL antigo não preenchia; o novo grava a data da VTEX',
+		shipping_estimated_date_min: 'o ETL antigo não preenchia; o novo grava a data da VTEX'
+	},
+	[ORDER_TABLES.details]: {
+		opentextfield: 'vazio: a Amobeleza antiga gravava "", a Mascavo nulo; o novo grava nulo'
+	},
+	[ORDER_TABLES.items]: {
+		shippingprice: 'a VTEX não manda o frete por item; a Amobeleza antiga calculava a partir da logística',
+		taxcode: 'sem código fiscal: a Amobeleza antiga gravou "0" em alguns itens; o novo grava ""'
+	},
+	[ORDER_TABLES.transactions]: {
+		is_active: 'o ETL antigo não preenchia; o novo grava o 1/0 da VTEX'
+	},
+	[ORDER_TABLES.clientProfile]: {
+		email: 'o ETL antigo deixou vazio em cerca de metade dos perfis; o novo grava o e-mail-alias que a VTEX manda',
+		first_name: 'o cliente pode atualizar o cadastro na VTEX depois da gravação antiga',
+		last_name: 'o cliente pode atualizar o cadastro na VTEX depois da gravação antiga',
+		home_phone: 'o cliente pode atualizar o cadastro na VTEX depois da gravação antiga'
+	}
+}
+
+interface iGroup {
+	ids: ReadonlySet<string>
+	suffix: string
+	volatile: boolean
+}
 
 interface iWindow {
 	from: Date
@@ -198,7 +282,7 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 		else changedAfter.push(orderId)
 	}
 
-	// 7. Transformação (só estáveis), como orders-job.ts.
+	// 7. Transformação (estáveis e mudou depois), como orders-job.ts.
 	const listedById = new Map<string, tListOrder>(sample.map(order => [order.orderId, order]))
 	const processedAtLocal = saoPauloWallClock(now)
 	const withSellerName = hasSellerName(ctx.database)
@@ -208,7 +292,7 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 	const transformed = new Map<string, iDetailRows>()
 	let neutralizedDates = 0
 
-	for (const orderId of stable) {
+	for (const orderId of [...stable, ...changedAfter]) {
 		const detail = details.get(orderId)
 		const listedOrder = listedById.get(orderId)
 		const production = productionDetails.get(orderId)
@@ -240,8 +324,13 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 	}
 
 	const comparedIds = new Set(transformedIds)
+	const stableSet = new Set(stable)
+	const groups: iGroup[] = [
+		{ ids: new Set(transformedIds.filter(id => stableSet.has(id))), suffix: '', volatile: false },
+		{ ids: new Set(transformedIds.filter(id => !stableSet.has(id))), suffix: CHANGED_SUFFIX, volatile: true }
+	].filter(group => group.ids.size > 0)
 
-	// vtex_client_profile: só os perfis dos pedidos comparados.
+	// vtex_client_profile: só os perfis dos pedidos comparados (o perfil não depende do andamento do pedido).
 	const profileIds = new Set<string>()
 	const newProfiles = new Map<string, tRow>()
 
@@ -259,13 +348,11 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 
 	const productionProfiles = await readByColumn(ctx, ORDER_TABLES.clientProfile, 'id', [...profileIds], 1)
 
-	// 8. Comparação por tabela.
-	const newRowsOf = (table: string): tRow[] => {
-		if (table === ORDER_TABLES.orders) return orderRows
+	// 8. Comparação por tabela, por grupo; o perfil de cliente uma vez só, com todos os pedidos comparados.
+	const newRowsOf = (table: string, ids: ReadonlySet<string>): tRow[] => {
+		if (table === ORDER_TABLES.orders) return onlyOrders(orderRows, ids)
 
-		if (table === ORDER_TABLES.clientProfile) return [...newProfiles.values()]
-
-		return transformedIds.flatMap(orderId => {
+		return [...ids].flatMap(orderId => {
 			const rows = transformed.get(orderId)
 
 			if (!rows) return []
@@ -276,23 +363,40 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 		})
 	}
 
-	const results: iCompareResult[] = TABLE_SPECS.map(spec => {
-		const expected =
-			spec.table === ORDER_TABLES.clientProfile
-				? productionProfiles.filter(row => profileIds.has(String(row.id)))
-				: onlyOrders(productionByTable.get(spec.table) ?? [], comparedIds)
+	const compareGroup = (spec: iTableSpec, group: iGroup): iCompareResult => {
+		const baseIgnored = spec.ignoreColumns ?? DEFAULT_IGNORED
+		const volatile = group.volatile ? (VOLATILE_COLUMNS[spec.table] ?? []) : []
 
 		return redactPersonal(
 			spec.table,
 			compareRows({
-				table: spec.table,
+				table: `${spec.table}${group.suffix}`,
 				keyColumns: spec.keyColumns,
-				expected,
-				actual: newRowsOf(spec.table),
-				ignoreColumns: spec.ignoreColumns ?? DEFAULT_IGNORED
+				expected: onlyOrders(productionByTable.get(spec.table) ?? [], group.ids),
+				actual: newRowsOf(spec.table, group.ids),
+				ignoreColumns: [...baseIgnored, ...volatile]
 			})
 		)
-	})
+	}
+
+	const orderSpecs = TABLE_SPECS.filter(spec => spec.table !== ORDER_TABLES.clientProfile)
+	const profileSpec = TABLE_SPECS.find(spec => spec.table === ORDER_TABLES.clientProfile)
+	const results: iCompareResult[] = groups.flatMap(group => orderSpecs.map(spec => compareGroup(spec, group)))
+
+	if (profileSpec) {
+		results.push(
+			redactPersonal(
+				profileSpec.table,
+				compareRows({
+					table: profileSpec.table,
+					keyColumns: profileSpec.keyColumns,
+					expected: productionProfiles.filter(row => profileIds.has(String(row.id))),
+					actual: [...newProfiles.values()],
+					ignoreColumns: profileSpec.ignoreColumns ?? DEFAULT_IGNORED
+				})
+			)
+		)
+	}
 
 	// 9-10. Relatório e notas.
 	const meta = {
@@ -301,8 +405,10 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 		window: { from: window.from.toISOString(), to: window.to.toISOString() },
 		sample: sampleIds.length,
 		listed: listed.length,
-		stable: comparedIds.size,
+		stable: groups.find(group => !group.volatile)?.ids.size ?? 0,
 		changedAfter: changedAfter,
+		volatileColumns: VOLATILE_COLUMNS,
+		acceptedDifferences: ACCEPTED_DIFFERENCES,
 		withoutProductionDetail: withoutProductionDetail,
 		failedDetails: failedDetails,
 		invalid: invalid,
@@ -312,14 +418,16 @@ const orderParity = async (ctx: iParityContext, deps: iOrderParityDeps = {}): Pr
 
 	notes.push(
 		`Janela: ${window.from.toISOString()} a ${window.to.toISOString()}; ${listed.length} pedido(s) listado(s), amostra de ${sampleIds.length}`,
-		`${comparedIds.size} estável(is) comparado(s), ${changedAfter.length} mudou(aram) depois do ETL antigo, ` +
+		`${comparedIds.size} pedido(s) comparado(s): ${changedAfter.length} mudaram depois do ETL antigo (sem as colunas de ` +
+			`andamento), o resto estrito; ` +
 			`${withoutProductionDetail.length} sem detalhe na produção, ${failedDetails.length} falha(s) de detalhe, ` +
 			`${invalid.length} fora do formato`,
 		`${neutralizedDates} data(s) de autorização/faturamento neutralizada(s) (a VTEX não mandou)`,
-		...extraNotes(results)
+		...extraNotes(results),
+		...acceptedNotes(results, ACCEPTED_DIFFERENCES)
 	)
 
-	return { reportPath, tables: summarize(results), notes }
+	return { reportPath, tables: summarize(results, ACCEPTED_DIFFERENCES), notes }
 }
 
 export { MAX_ROWS_PER_ORDER, orderParity }

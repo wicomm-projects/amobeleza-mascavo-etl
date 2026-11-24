@@ -7,16 +7,16 @@ import type { tDatabase } from '../../src/config/index.js'
 import { catalogParity } from '../../src/connectors/vtex/catalog-parity.js'
 import { loadCatalogFixture, loadOrdersFixture } from '../../src/connectors/vtex/fixtures.js'
 import { orderParity } from '../../src/connectors/vtex/orders-parity.js'
-import { pickSample } from '../../src/connectors/vtex/parity-shared.js'
+import { pickSample, summarize } from '../../src/connectors/vtex/parity-shared.js'
 import { MASK } from '../../src/connectors/vtex/personal-data.js'
 import type { tListOrder, tOrderDetail } from '../../src/connectors/vtex/schemas.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES } from '../../src/connectors/vtex/tables.js'
 import { toCategoryTreeRows, toProductRow, toSkusAndProductsRows } from '../../src/connectors/vtex/transform-catalog.js'
-import { toDetailRows, toOrderRow } from '../../src/connectors/vtex/transform-orders.js'
+import { sellerNameOf, toDetailRows, toOrderRow } from '../../src/connectors/vtex/transform-orders.js'
 import { saoPauloWallClock } from '../../src/connectors/vtex/values.js'
 import type { iRefReader, tRow } from '../../src/core/db/index.js'
 import type { iParityContext } from '../../src/core/jobs/types.js'
-import type { iCompareResult } from '../../src/core/parity/compare.js'
+import { type iCompareResult, normalize } from '../../src/core/parity/compare.js'
 
 /** Exemplos públicos da documentação da VTEX (nenhum dado da cliente). Sem rede e sem banco. */
 const FIXTURES = path.resolve('src/connectors/vtex/fixtures')
@@ -148,19 +148,43 @@ describe('paridade de vtex-orders', () => {
 		expect(captured.meta).toMatchObject({ brand: 'mascavo', stable: 1, changedAfter: [] })
 	})
 
-	it('last_change diferente na produção: pedido vai para changedAfter e nada é comparado', async () => {
+	it('pedido que mudou depois: comparado sem as colunas de andamento, no grupo "(mudou depois)"', async () => {
 		const scenario = await scenarioOf()
 		const production = productionOf(scenario)
 		const [details] = production.get(ORDER_TABLES.details) ?? []
+		const [order] = production.get(ORDER_TABLES.orders) ?? []
 
-		production.set(ORDER_TABLES.details, [{ ...details, last_change: new Date(Date.UTC(2024, 1, 5)) }])
+		// Como o ETL antigo da Mascavo: gravou com o status do começo e não atualizou mais.
+		production.set(ORDER_TABLES.details, [
+			{ ...details, last_change: new Date(Date.UTC(2024, 1, 5)), status: 'handling', status_description: 'x' }
+		])
+		production.set(ORDER_TABLES.orders, [{ ...order, status: 'handling', status_description: 'x' }])
 
 		const { reader } = fakeRefReader(production)
 		const { captured, writeReport } = capture()
 		const summary = await orderParity(contextOf(reader), { api: fakeOrdersApi(scenario), writeReport, now: NOW })
+		const changedDetails = summary.tables.find(table => table.table === `${ORDER_TABLES.details} (mudou depois)`)
 
 		expect(captured.meta).toMatchObject({ stable: 0, changedAfter: [scenario.detail.orderId] })
-		expect(summary.tables.every(table => table.compared === 0)).toBe(true)
+		expect(changedDetails).toMatchObject({ compared: 1, divergent: 0 })
+		expect(summary.tables.some(table => table.table === ORDER_TABLES.details)).toBe(false)
+		expect(summary.tables.every(table => table.divergent === 0)).toBe(true)
+	})
+
+	it('pedido que mudou depois: valor diferente fora das colunas de andamento continua divergindo', async () => {
+		const scenario = await scenarioOf()
+		const production = productionOf(scenario)
+		const [details] = production.get(ORDER_TABLES.details) ?? []
+		const [stored] = production.get(ORDER_TABLES.items) ?? []
+
+		production.set(ORDER_TABLES.details, [{ ...details, last_change: new Date(Date.UTC(2024, 1, 5)) }])
+		production.set(ORDER_TABLES.items, [{ ...stored, sellingprice: '990.00' }])
+
+		const { reader } = fakeRefReader(production)
+		const { writeReport } = capture()
+		const summary = await orderParity(contextOf(reader), { api: fakeOrdersApi(scenario), writeReport, now: NOW })
+
+		expect(summary.tables.find(table => table.table === `${ORDER_TABLES.items} (mudou depois)`)?.divergent).toBe(1)
 	})
 
 	it('sellingprice em centavos na produção: 1 divergente em vtex_order_items', async () => {
@@ -344,5 +368,54 @@ describe('paridade de vtex-catalog', () => {
 		expect(queries.some(({ sql }) => sql.includes('vtex_products'))).toBe(false)
 		expect(captured.results.map(result => result.table)).not.toContain('vtex_products')
 		expect(captured.meta).toMatchObject({ writesProducts: false })
+	})
+})
+
+describe('ajustes da paridade real (24/11/2026)', () => {
+	it('JSON com as chaves em outra ordem é o mesmo valor (coluna JSON do MySQL reordena)', () => {
+		expect(normalize('{"b":1,"a":{"d":2,"c":[{"f":1,"e":0}]}}')).toBe(
+			normalize('{"a":{"c":[{"e":0,"f":1}],"d":2},"b":1}')
+		)
+		expect(normalize({ b: 1, a: 2 })).toBe(normalize('{"a":2,"b":1}'))
+		expect(normalize('[mascarado]')).toBe('[mascarado]')
+	})
+
+	it('diferença só em coluna aceita não conta como divergente; em outra coluna, conta', () => {
+		const result: iCompareResult = {
+			table: 'vtex_orders (mudou depois)',
+			compared: 3,
+			matched: 0,
+			missingInNew: [],
+			extraInNew: [],
+			diffs: [
+				{ key: 'a', column: 'total_items', expected: '0', actual: '2' },
+				{ key: 'b', column: 'total_items', expected: '0', actual: '1' },
+				{ key: 'c', column: 'origin', expected: 'Marketplace', actual: 'Fulfillment' }
+			],
+			divergentByColumn: { total_items: 2, origin: 1 }
+		}
+		const [summary] = summarize([result], { vtex_orders: { total_items: 'motivo' } })
+
+		expect(summary).toMatchObject({ compared: 3, divergent: 1 })
+	})
+
+	it('seller_name: a própria loja também tem nome (como o ETL antigo gravava)', async () => {
+		const fixture = await loadOrdersFixture(path.join(FIXTURES, 'vtex-orders.json'))
+		const detail = fixture.orders[0]
+
+		if (!detail) throw new Error('fixture sem pedido')
+
+		const own = { ...detail, sellers: [{ id: '1', name: 'Amobeleza' }] } as tOrderDetail
+		const third = {
+			...detail,
+			sellers: [
+				{ id: '1', name: 'Amobeleza' },
+				{ id: 'parceiro', name: 'Parceiro' }
+			]
+		} as tOrderDetail
+
+		expect(sellerNameOf(own)).toBe('Amobeleza')
+		expect(sellerNameOf(third)).toBe('Parceiro')
+		expect(sellerNameOf({ ...detail, sellers: [] } as tOrderDetail)).toBeNull()
 	})
 })
