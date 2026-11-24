@@ -152,15 +152,27 @@ Grafia das colunas exatamente como no dicionário (`docs/contrato/mascavo_etl.md
   estrito o MySQL recusaria a linha e derrubaria a carga.
 - Log só com contagens e IDs de pedido/produto; nenhum dado de cliente.
 
-## DDL provisória: o que difere do dicionário
+## Estrutura real e as 7 colunas NOT NULL
 
-As 14 tabelas foram escritas a partir do dicionário da WPP, com índices no padrão do Laravel (`<tabela>_<coluna>_index`).
-Valem até o `schema:pull` trazer o DDL real. Colunas que o dicionário marca "Não nulo", mas a VTEX pode mandar nulo,
-foram relaxadas para `NULL` (comentário no arquivo):
+As 14 tabelas têm a estrutura real da produção (`schema:pull` de 24/11/2026, só leitura). 12 estavam iguais ao
+dicionário. Nas outras, 7 colunas que a DDL provisória tinha relaxado para `NULL` são **`NOT NULL`** na produção, e o
+servidor está em modo estrito (MySQL 8.4, `STRICT_TRANS_TABLES`): gravar vazio derrubaria o lote inteiro.
 
-- `vtex_order_details`: `marketplace_services_endpoint` (pedido da própria loja), `authorizeddate`, `invoiceddate`
-  (pedido não autorizado/faturado).
-- `vtex_order_items`: `lockid`, `refid`, `taxcode`, `costprice`.
+O ETL antigo sempre preenchia essas colunas. A leitura de amostras na produção (pedidos cancelados, aguardando
+pagamento e em preparação, nas duas lojas; AMO-Q15) mostrou o substituto que ele usava quando a VTEX não mandava valor,
+e o conector faz igual (`OLD_ETL_FALLBACK` em `transform-orders.ts`):
+
+| Coluna                                              | Substituto quando a VTEX não manda                                                                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vtex_order_details.authorizeddate`, `invoiceddate` | o "agora" da carga no relógio de São Paulo (igual ao `created_at` da linha no ETL antigo, que era Laravel no fuso de SP com o MySQL em UTC) |
+| `vtex_order_details.marketplace_services_endpoint`  | `http://oms.vtexinternal.com.br/api/oms?an=<conta>`                                                                                         |
+| `vtex_order_items.lockid`                           | `00-<order_id>`                                                                                                                             |
+| `vtex_order_items.refid`                            | `-`                                                                                                                                         |
+| `vtex_order_items.taxcode`                          | `''` (texto vazio)                                                                                                                          |
+| `vtex_order_items.costprice`                        | `0` (_assumido_: veio sempre preenchido nas amostras)                                                                                       |
+
+Nenhum painel do Power BI lê essas 7 colunas. Na paridade, `authorizeddate`/`invoiceddate` de pedido sem data na
+VTEX não são comparadas (o "agora" nunca bate).
 
 ## Diferenças entre os bancos (doc da Mascavo × doc da Amobeleza)
 
@@ -208,7 +220,7 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
 ## Pendências (dependem de chave, `schema:pull` ou paridade)
 
 1. `check-access` real e primeira carga com chave (só no Docker local).
-2. `schema:pull`: índices reais, charset, e se as colunas relaxadas acima são mesmo `NOT NULL` na produção.
+2. ~~`schema:pull`~~ feito em 24/11/2026: estrutura real aplicada; as 7 colunas NOT NULL usam o substituto do ETL antigo (acima).
 3. Paridade (`parity` ainda não implementado no conector; entra quando houver usuário só leitura):
     - centavos em itens, detalhes, pagamentos e logística (o contrato só garante `vtex_orders.total_value`);
     - o que o ETL antigo gravava em `invoiceddate`/`authorizeddate` de pedido sem data;

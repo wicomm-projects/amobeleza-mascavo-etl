@@ -109,4 +109,39 @@ const toText = (value: unknown, maxLength: number = VARCHAR_DEFAULT_LENGTH): str
 	return text.length > maxLength ? text.slice(0, maxLength) : text
 }
 
-export { flag, required, toComparableUtc, toInt, toJson, toText, toUtcDate, VARCHAR_DEFAULT_LENGTH }
+const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo'
+
+/**
+ * O instante `now` no relógio de São Paulo, como um Date cujo horário UTC é o horário de SP. O mysql2 grava Date em UTC
+ * (`timezone: 'Z'`), então o que chega na coluna DATETIME é o horário de SP — como o ETL antigo (Laravel no fuso de SP)
+ * gravava o "agora" no servidor MySQL em UTC. Usado só nos substitutos do ETL antigo (transform-orders.ts).
+ */
+const saoPauloWallClock = (now: Date): Date => {
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat('en-US', {
+			timeZone: SAO_PAULO_TIME_ZONE,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hourCycle: 'h23'
+		})
+			.formatToParts(now)
+			.map(part => [part.type, part.value])
+	)
+
+	return new Date(
+		Date.UTC(
+			Number(parts.year),
+			Number(parts.month) - 1,
+			Number(parts.day),
+			Number(parts.hour),
+			Number(parts.minute),
+			Number(parts.second)
+		)
+	)
+}
+
+export { flag, required, saoPauloWallClock, toComparableUtc, toInt, toJson, toText, toUtcDate, VARCHAR_DEFAULT_LENGTH }
