@@ -232,7 +232,8 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
     - o que o ETL antigo gravava em `invoiceddate`/`authorizeddate` de pedido sem data;
     - se a lista antiga incluía pedidos incompletos (a VTEX tem `incompleteOrders`; não passamos o filtro e o padrão da
       API não está documentado — comparar a contagem de `order_is_complete = 0`);
-    - `department` em `vtex_category_tree` (`id` e `sub_category_id` já medidos em 24/11/2026);
+    - `department` em `vtex_category_tree` (`id` e `sub_category_id` já medidos em 24/11/2026). Na paridade do
+      catálogo, `id` dessa tabela é dado de negócio (o Power BI liga por ele): não deixar no `DEFAULT_IGNORED`;
     - `vtex_client_profile.type` (`cpf`/`cnpj` ou outro texto);
     - formato de booleano em `varchar` (`vtex_products.show_without_stock`);
     - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio);

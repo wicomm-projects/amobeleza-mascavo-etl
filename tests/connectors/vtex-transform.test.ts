@@ -89,6 +89,20 @@ describe('valores dos pedidos: só vtex_orders.total_value fica em centavos', ()
 		})
 	})
 
+	it('colunas int não zero continuam como a VTEX manda', async () => {
+		const detail = await firstOf()
+		const [first] = detail.items ?? []
+
+		if (!first) throw new Error('fixture sem item')
+
+		const [item] = toItemRows({
+			...detail,
+			items: [{ ...first, commission: 2500, tax: 150, freightCommission: 800 }]
+		})
+
+		expect(item).toMatchObject({ commission: 2500, tax: 150, freightcommission: 800, rewardvalue: 1599 })
+	})
+
 	it('logística e pagamentos em reais', async () => {
 		const detail = await firstOf()
 		const [logistics] = toLogisticsInfoRows(detail)
@@ -122,6 +136,19 @@ describe('vtex_category_tree: id da VTEX e pai em sub_category_id', () => {
 			[81927, 0],
 			[900, 81948]
 		])
+	})
+
+	it('ID repetido ou fora da faixa fica de fora (e o filho de pai fora da faixa também)', () => {
+		const grande = 3_000_000_000
+		const tree = [
+			node(81927, 'Face', [node(81948, 'Base')]),
+			node(81948, 'Base de novo'),
+			node(grande, 'Gigante', [node(5, 'Filho')])
+		]
+		const { rows, skippedIds } = toCategoryTreeRows(tree)
+
+		expect(rows.map(row => row.id)).toEqual([81927, 81948])
+		expect(skippedIds).toEqual([81948, grande, 5])
 	})
 
 	it('fixture pública: toda linha tem id, e filho aponta para uma raiz', async () => {
