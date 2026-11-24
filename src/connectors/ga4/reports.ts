@@ -91,6 +91,27 @@ const mascavoTrafego: iReportDefinition = {
 	metrics: ['eventCount'],
 	dimensionFilter: event('session_start'),
 	scope: { kind: 'window', dateColumn: 'date' },
+	// Índice único da produção: (date, ga4_property_id, session_source(100), session_campaign_name(100),
+	// platform_device_category(100), vehicle_channel_no_pay(100), type(100)), em utf8mb4_unicode_ci.
+	collapse: {
+		keyColumns: [
+			'date',
+			'ga4_property_id',
+			'session_source',
+			'session_campaign_name',
+			'platform_device_category',
+			'vehicle_channel_no_pay',
+			'type'
+		],
+		prefix: {
+			session_source: 100,
+			session_campaign_name: 100,
+			platform_device_category: 100,
+			vehicle_channel_no_pay: 100,
+			type: 100
+		},
+		sumColumns: ['event_count']
+	},
 	toRow: (row, { propertyId, channel }) => {
 		const source = row.text('sessionSource')
 		const campaign = row.text('sessionCampaignName')
@@ -118,6 +139,30 @@ const mascavoVendas: iReportDefinition = {
 	dimensions: ['date', 'source', 'campaignName', 'platformDeviceCategory'],
 	metrics: ['purchaseRevenue', 'keyEvents'],
 	scope: { kind: 'window', dateColumn: 'date' },
+	// Índice único da produção: (date, ga4_property_id(50), source(100), event_campaign_name(100),
+	// platform_device_category(50), purchase_revenue, conversions, vehicle_channel_no_pay(50), type(50), investment(50)).
+	// Juntamos pelas colunas de texto (sem as métricas) e somamos receita e conversões: junta um pouco mais que o índice,
+	// mas nunca deixa duas linhas colidirem e os totais ficam iguais. `investment` é sempre nulo aqui.
+	collapse: {
+		keyColumns: [
+			'date',
+			'ga4_property_id',
+			'source',
+			'event_campaign_name',
+			'platform_device_category',
+			'vehicle_channel_no_pay',
+			'type'
+		],
+		prefix: {
+			ga4_property_id: 50,
+			source: 100,
+			event_campaign_name: 100,
+			platform_device_category: 50,
+			vehicle_channel_no_pay: 50,
+			type: 50
+		},
+		sumColumns: ['purchase_revenue', 'conversions']
+	},
 	toRow: (row, { propertyId, channel }) => {
 		const source = row.text('source')
 		const campaign = row.text('campaignName')
@@ -141,7 +186,12 @@ const mascavoUsers: iReportDefinition = {
 	dimensions: ['date', 'sessionSource'],
 	metrics: ['firstTimePurchasers', 'newUsers'],
 	scope: { kind: 'window', dateColumn: 'Date' },
-	collapse: { keyColumns: ['Date', 'Session_source'], sumColumns: ['First_time_purchasers', 'New_users'] },
+	// PK (Date, Session_source) com Session_source em utf8mb4_bin: "Google" e "google" são linhas diferentes na produção.
+	collapse: {
+		keyColumns: ['Date', 'Session_source'],
+		match: 'exact',
+		sumColumns: ['First_time_purchasers', 'New_users']
+	},
 	toRow: row => ({
 		Date: row.date('date'),
 		Session_source: row.text('sessionSource'),
@@ -150,7 +200,10 @@ const mascavoUsers: iReportDefinition = {
 	})
 }
 
-/** A PK da tabela são as cinco colunas; juntamos por data + origem + item para não colidir por maiúscula/acento. */
+/**
+ * A PK da tabela são as cinco colunas, com Session_source e Item_name em utf8mb4_bin (estrutura real): maiúscula conta.
+ * Juntamos só data + origem + item exatamente iguais (na prática, só diferença de espaço no fim).
+ */
 const mascavoItems: iReportDefinition = {
 	table: 'sheets_google_drive_items',
 	dimensions: ['date', 'sessionSource', 'itemName'],
@@ -158,6 +211,7 @@ const mascavoItems: iReportDefinition = {
 	scope: { kind: 'window', dateColumn: 'Date' },
 	collapse: {
 		keyColumns: ['Date', 'Session_source', 'Item_name'],
+		match: 'exact',
 		sumColumns: ['Item_revenue', 'Item_purchase_quantity']
 	},
 	toRow: row => ({

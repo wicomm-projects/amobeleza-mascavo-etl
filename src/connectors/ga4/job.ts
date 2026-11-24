@@ -97,7 +97,7 @@ const reportNotes = ({ definition, report, window, rows, truncated, merged }: iT
 		const how =
 			definition.collapse && 'keep' in definition.collapse
 				? 'com a mesma chave descartada(s) (fica a primeira na ordem do relatório)'
-				: 'somada(s) por diferença só de maiúscula/acento'
+				: 'somada(s) por cair na mesma chave da tabela na produção'
 
 		notes.push(`${table}: ${merged} linha(s) ${how}`)
 	}

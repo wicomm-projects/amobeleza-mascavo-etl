@@ -70,14 +70,23 @@ carregue em janelas de ~1 mês (cota do GA4).
 
 Aparecem no fim do `run` e no `/status`: De/Para faltando (lista das combinações origem/campanha sem regra), relatório
 vazio, linha `(other)` do GA4 (cardinalidade alta), limiares de privacidade, amostragem, fuso da propriedade diferente
-de São Paulo, moeda diferente de BRL, texto cortado em 255 caracteres e linhas juntadas por diferença só de maiúscula/acento.
+de São Paulo, moeda diferente de BRL, texto cortado em 255 caracteres e linhas juntadas por cair na mesma chave da tabela.
 
-### Por que juntar linhas
+### Por que juntar linhas (regra de cada tabela na produção)
 
-O GA4 separa `google` e `Google`; a collation do MySQL (`utf8mb4_unicode_ci`) não. Em `users` (PK `Date` +
-`Session_source`) e `items` (PK das cinco colunas), as duas linhas colidiriam e a carga inteira cairia. O conector soma
-as métricas das linhas com a mesma chave (os totais do Power BI ficam iguais). Em `category`, fica uma linha por
-`Item_name` (o Power BI liga `items` → `category` por ele, N:1).
+O GA4 separa `google` e `Google`. Cada tabela da produção compara texto de um jeito (estrutura real, `schema:pull` de
+24/11/2026), e o conector junta as linhas exatamente pela regra da chave de cada uma, somando as métricas (os totais do
+Power BI ficam iguais). Sem isso, a carga inteira cairia por chave duplicada.
+
+| Tabela     | Chave na produção                                                                                                   | Como o conector junta                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `users`    | PK (`Date`, `Session_source`), `Session_source` em `utf8mb4_bin`                                                    | só o que é idêntico (maiúscula conta; espaço no fim não)                      |
+| `items`    | PK das cinco colunas, `Session_source` e `Item_name` em `utf8mb4_bin`                                               | idem, por data + origem + item                                                |
+| `trafego`  | índice único (data, propriedade, origem(100), campanha(100), dispositivo(100), canal(100), tipo(100)), `unicode_ci` | sem maiúscula/acento, nos primeiros 100 caracteres                            |
+| `vendas`   | índice único com origem(100), campanha(100), dispositivo(50), canal(50), tipo(50) e as métricas, `unicode_ci`       | pelas colunas de texto (junta um pouco mais que o índice, nunca colide)       |
+| `category` | índice único nas três colunas, sensível a maiúscula e acento                                                        | uma linha por `Item_name` (o Power BI liga `items` → `category` por ele, N:1) |
+
+Canal e tipo vazios (De/Para sem regra) nunca colidem no índice único: nulo não é igual a nulo no MySQL.
 
 ## Mapa GA4 → colunas
 
@@ -137,11 +146,10 @@ histórico. Formato de `de-para.json`:
 ## DDL provisória
 
 `db/schema/mascavo_etl/sheets_google_drive_{trafego,vendas,users,items,category}.sql` e
-`db/schema/amobeleza_etl/sheets_google_drive_{trafego,transacoes,navegacao,por_hora}.sql`, escritas a partir dos
-dicionários da WPP (doc Mascavo p. 31–38, doc Amobeleza p. 53–55) até o `schema:pull`. `items` usa `utf8mb3`: com
-`utf8mb4`, a PK de três `varchar(255)` passa do limite de 3.072 bytes do InnoDB — a tabela real deve ser `utf8`.
-Consequência: `Item_name` ou `Session_source` com emoji (4 bytes) dá erro de gravação e ROLLBACK da carga. Se o
-`schema:pull` confirmar `utf8mb3`, o conector precisa trocar esses caracteres nessa tabela (e contar no resumo).
+`db/schema/amobeleza_etl/sheets_google_drive_{trafego,transacoes,navegacao,por_hora}.sql`: estrutura real, trazida
+pelo `schema:pull` de 24/11/2026 (só leitura). As 4 tabelas da Amobeleza estavam iguais ao dicionário. Na Mascavo
+vieram os índices únicos de `trafego`/`vendas`/`category` e a colação `utf8mb4_bin` de `users`/`items` (tabela acima);
+`items` é `utf8mb4` (aceita emoji), então a pendência do `utf8mb3` caiu.
 
 ## Pendências e dúvidas
 
