@@ -5,7 +5,9 @@ import { AppError } from '../../core/errors.js'
  *
  * - Datas: a VTEX manda ISO 8601 com 0 a 7 casas decimais e fuso ("2024-02-06T20:46:11.7010747+00:00"). As colunas são
  *   DATETIME sem fração: convertemos para UTC e cortamos os milissegundos (o mysql2 grava em UTC, `timezone: 'Z'`).
- * - Valores em dinheiro: ficam em centavos, como a VTEX manda (o Power BI divide por 100).
+ * - Valores em dinheiro: a VTEX manda em centavos. Como o ETL antigo, só `vtex_orders.total_value` fica em centavos (o
+ *   Power BI divide por 100); as colunas decimal(10,2) das outras tabelas de pedido vão em reais (`toReais`). Colunas
+ *   int (commission, tax, rewardvalue…) ficam como a VTEX manda. Medido na produção, só leitura, 24/11/2026.
  * - Booleano → 1/0 (tinyint).
  * - JSON → texto JSON (o mysql2 transformaria objeto em "chave = valor").
  */
@@ -64,6 +66,18 @@ const toComparableUtc = (value: Date | string | null | undefined): string | null
 	if (!date) return null
 
 	return date.toISOString().slice(0, 19).replace('T', ' ')
+}
+
+const CENTS_PER_REAL = 100
+
+/**
+ * Centavos da VTEX → reais, para as colunas decimal(10,2) fora de `vtex_orders` (ex.: 4405 → 44.05). Sem arredondar
+ * aqui: o MySQL ajusta a 2 casas ao gravar, como fazia com o ETL antigo. Vazio continua vazio.
+ */
+const toReais = (cents: number | null | undefined): number | null => {
+	if (cents === null || cents === undefined) return null
+
+	return cents / CENTS_PER_REAL
 }
 
 const flag = (value: boolean | null | undefined): 0 | 1 | null => {
@@ -144,4 +158,15 @@ const saoPauloWallClock = (now: Date): Date => {
 	)
 }
 
-export { flag, required, saoPauloWallClock, toComparableUtc, toInt, toJson, toText, toUtcDate, VARCHAR_DEFAULT_LENGTH }
+export {
+	flag,
+	required,
+	saoPauloWallClock,
+	toComparableUtc,
+	toInt,
+	toJson,
+	toReais,
+	toText,
+	toUtcDate,
+	VARCHAR_DEFAULT_LENGTH
+}

@@ -66,20 +66,26 @@ const productIdOf = (key: string): number => {
 	return id
 }
 
+/** `sub_category_id` da raiz ("0 quando é nó raiz", dicionário). */
+const ROOT_PARENT_ID = 0
+
 /**
- * vtex_category_tree — a árvore achatada, um nó por linha, `id` técnico (não vai na linha).
- * - Departamento (raiz): `department` nulo e `sub_category_id` 0 ("0 quando é nó raiz", dicionário).
- * - Categoria abaixo dele: `department` = nome do departamento e `sub_category_id` = ID da categoria na VTEX.
- * A regra exata do ETL antigo para `department` e `sub_category_id` não está documentada: confirmar na paridade.
+ * vtex_category_tree — a árvore achatada, um nó por linha. Como o ETL antigo (medido na produção, só leitura,
+ * 24/11/2026, nas duas marcas) e como o Power BI lê (liga o `id` do pai ao `sub_category_id` dos filhos):
+ * - `id` = ID da categoria na VTEX (a coluna é AUTO_INCREMENT, mas o valor vai explícito);
+ * - `sub_category_id` = ID da categoria pai na VTEX, ou 0 na raiz.
+ * - `department`: nulo na raiz e, abaixo dela, o nome do departamento. O ETL antigo gravava outra coisa (as raízes
+ *   levam o nome da primeira raiz); o Power BI B2C da Mascavo não lê essa coluna: confirmar na paridade.
  * Nó sem título ou meta description (NOT NULL) fica de fora, com o ID em `skippedIds`; os filhos dele seguem.
  */
 const toCategoryTreeRows = (tree: readonly iCategoryNode[]): { rows: tRow[]; skippedIds: number[] } => {
 	const rows: tRow[] = []
 	const skippedIds: number[] = []
 
-	const visit = (node: iCategoryNode, department: string | null) => {
+	const visit = (node: iCategoryNode, department: string | null, parentId: number) => {
 		try {
 			rows.push({
+				id: node.id,
 				name: toText(node.name),
 				department: department === null ? null : toText(department),
 				has_children: flag(node.hasChildren),
@@ -88,16 +94,16 @@ const toCategoryTreeRows = (tree: readonly iCategoryNode[]): { rows: tRow[]; ski
 				meta_tag_description: toText(
 					required(node.MetaTagDescription, `categoria ${node.id} meta_tag_description`)
 				),
-				sub_category_id: department === null ? 0 : node.id
+				sub_category_id: parentId
 			})
 		} catch {
 			skippedIds.push(node.id)
 		}
 
-		node.children.forEach(child => visit(child, department ?? node.name))
+		node.children.forEach(child => visit(child, department ?? node.name, node.id))
 	}
 
-	tree.forEach(root => visit(root, null))
+	tree.forEach(root => visit(root, null, ROOT_PARENT_ID))
 
 	return { rows, skippedIds }
 }

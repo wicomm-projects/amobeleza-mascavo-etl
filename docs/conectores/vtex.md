@@ -137,12 +137,15 @@ Grafia das colunas exatamente como no dicionário (`docs/contrato/mascavo_etl.md
 - **`vtex_products`**: campos de Get product em snake_case; booleanos em `varchar` (`show_without_stock`) gravados
   como `"1"`/`"0"`.
 - **`vtex_skus_and_products_id`**: `product_id` + lista de SKUs em JSON.
-- **`vtex_category_tree`**: árvore achatada; departamento com `department` nulo e `sub_category_id` 0; categoria abaixo
-  com `department` = nome do departamento e `sub_category_id` = ID da categoria.
+- **`vtex_category_tree`**: árvore achatada, como o ETL antigo e como o Power BI lê (medido na produção, só leitura,
+  24/11/2026): `id` = ID da categoria na VTEX e `sub_category_id` = ID do pai, 0 na raiz. `department` nulo na raiz e,
+  abaixo dela, o nome do departamento (o ETL antigo gravava outra coisa; o Power BI B2C da Mascavo não lê a coluna).
 
 ## Convenções aplicadas
 
-- Dinheiro em **centavos**, como a VTEX manda, em todas as tabelas (o contrato só confirma `vtex_orders.total_value`).
+- Dinheiro: **centavos** só em `vtex_orders.total_value`; as colunas decimal de detalhes, itens, logística, pagamentos e
+  vale-presente vão em **reais** (÷ 100), e as colunas int (`commission`, `tax`, `rewardvalue`…) ficam como a VTEX
+  manda. Medido na produção, só leitura, 24/11/2026, nas duas marcas.
 - Datas em **UTC**, cortadas no segundo (as colunas são `DATETIME` sem fração; a VTEX manda até 7 casas decimais).
 - Status em inglês e descrição em português, **sem traduzir**.
 - Booleano em `1`/`0`; JSON como texto JSON; valor ausente fica **nulo** (nada é inventado).
@@ -225,11 +228,11 @@ npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fi
 1. `check-access` real e primeira carga com chave (só no Docker local).
 2. ~~`schema:pull`~~ feito em 24/11/2026: estrutura real aplicada; as 7 colunas NOT NULL usam o substituto do ETL antigo (acima).
 3. Paridade (`parity` ainda não implementado no conector; entra quando houver usuário só leitura):
-    - centavos em itens, detalhes, pagamentos e logística (o contrato só garante `vtex_orders.total_value`);
+    - ~~centavos em itens, detalhes, pagamentos e logística~~ — medido em 24/11/2026: reais (ver Convenções);
     - o que o ETL antigo gravava em `invoiceddate`/`authorizeddate` de pedido sem data;
     - se a lista antiga incluía pedidos incompletos (a VTEX tem `incompleteOrders`; não passamos o filtro e o padrão da
       API não está documentado — comparar a contagem de `order_is_complete = 0`);
-    - regra de `department`/`sub_category_id` e profundidade da árvore em `vtex_category_tree` (22 linhas na Mascavo);
+    - `department` em `vtex_category_tree` (`id` e `sub_category_id` já medidos em 24/11/2026);
     - `vtex_client_profile.type` (`cpf`/`cnpj` ou outro texto);
     - formato de booleano em `varchar` (`vtex_products.show_without_stock`);
     - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio);
