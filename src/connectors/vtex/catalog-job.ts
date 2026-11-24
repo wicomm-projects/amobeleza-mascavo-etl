@@ -249,4 +249,4 @@ const catalogJob: iJob = {
 	run
 }
 
-export { catalogJob, listProductAndSkuIds }
+export { CATEGORY_TREE_LEVELS, catalogJob, listProductAndSkuIds, writesProducts }

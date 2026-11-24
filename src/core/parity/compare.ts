@@ -115,16 +115,20 @@ const compareRows = (input: iCompareInput): iCompareResult => {
 
 const REPORTS_DIR = 'reports'
 
-/** Grava o relatório completo em reports/paridade-<job>-<data>.json e devolve o caminho. */
-const writeParityReport = async (job: string, results: iCompareResult[]): Promise<string> => {
+/** Grava o relatório completo ({ meta, results }) em reports/paridade-<job>-<data>.json e devolve o caminho. */
+const writeParityReport = async (
+	job: string,
+	results: iCompareResult[],
+	meta: Record<string, unknown> = {}
+): Promise<string> => {
 	const stamp = new Date().toISOString().replace(/[:.]/g, '-')
 	const file = path.join(REPORTS_DIR, `paridade-${job}-${stamp}.json`)
 
 	await mkdir(REPORTS_DIR, { recursive: true })
-	await writeFile(file, JSON.stringify(results, null, '\t'), 'utf8')
+	await writeFile(file, JSON.stringify({ meta, results }, null, '\t'), 'utf8')
 
 	return file
 }
 
-export { compareRows, normalize, writeParityReport }
+export { compareRows, DEFAULT_IGNORED, normalize, writeParityReport }
 export type { iColumnDiff, iCompareInput, iCompareResult }

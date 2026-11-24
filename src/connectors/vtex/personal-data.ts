@@ -43,4 +43,4 @@ const maskPersonalData = (table: string, rows: tRow[]): tRow[] => {
 	})
 }
 
-export { MASK, maskPersonalData }
+export { MASK, maskPersonalData, PERSONAL_COLUMNS }

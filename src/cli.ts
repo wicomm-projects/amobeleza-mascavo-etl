@@ -252,6 +252,8 @@ const commandParity = async (jobName: string | undefined, values: Record<string,
 		out(`${table.table.padEnd(44)} comparadas ${table.compared}  divergentes ${table.divergent}`)
 	}
 
+	for (const note of summary.notes ?? []) out(note)
+
 	out(`Relatório completo: ${summary.reportPath}`)
 
 	return 0
