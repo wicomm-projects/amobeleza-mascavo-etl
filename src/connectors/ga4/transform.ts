@@ -30,11 +30,26 @@ interface iGa4Row {
 	number: (metric: string) => number
 }
 
+/**
+ * Como a chave da tabela na produção compara texto (estrutura real, schema:pull de 24/11/2026):
+ * - 'collation': utf8mb4_unicode_ci — sem diferença de maiúscula/acento (índices únicos de trafego e vendas);
+ * - 'exact': utf8mb4_bin — "Google" e "google" são chaves diferentes; só o espaço no fim é ignorado (PAD SPACE).
+ */
+type tKeyMatch = 'collation' | 'exact'
+
+interface iCollapseKey {
+	keyColumns: readonly string[]
+	/** Padrão: 'collation'. */
+	match?: tKeyMatch
+	/** Índice com prefixo (ex.: session_source(100)): só os primeiros N caracteres entram na comparação. */
+	prefix?: Readonly<Record<string, number>>
+}
+
 type tCollapse =
-	/** Soma as métricas das linhas com a mesma chave (pela collation do MySQL). */
-	| { keyColumns: readonly string[]; sumColumns: readonly string[] }
+	/** Soma as métricas das linhas com a mesma chave (pela regra da chave na produção). */
+	| (iCollapseKey & { sumColumns: readonly string[] })
 	/** Fica com a primeira linha de cada chave (a resposta já vem ordenada pela relevância). */
-	| { keyColumns: readonly string[]; keep: 'first' }
+	| (iCollapseKey & { keep: 'first' })
 
 const GA4_DATE = /^(\d{4})(\d{2})(\d{2})$/
 const LAST_HOUR = 23
@@ -142,16 +157,26 @@ const toRows = <TContext>(
 	return report.rows.map((row, index) => toRow(read(row, index), context))
 }
 
+/** Parte da chave de uma coluna, como o índice da produção enxerga: prefixo, depois a regra de comparação. Nulo é só nulo. */
+const keyPart = (value: unknown, rule: iCollapseKey, column: string): string => {
+	if (value === null || value === undefined) return '\u0001NULL'
+
+	const limit = rule.prefix?.[column]
+	const text = limit === undefined ? String(value) : [...String(value)].slice(0, limit).join('')
+
+	return rule.match === 'exact' ? text.trimEnd() : collationKey(text)
+}
+
 /**
- * Junta as linhas que o MySQL veria como a mesma chave (maiúscula/acento). Sem isso, "Google" e "google" no mesmo dia
- * derrubariam a carga inteira por chave primária duplicada. Na soma, os totais do Power BI ficam iguais.
+ * Junta as linhas que a chave da tabela na produção veria como a mesma (PK ou índice único). Sem isso, a carga inteira
+ * cairia por chave duplicada. Na soma, os totais do Power BI ficam iguais.
  */
 const collapseRows = (rows: tRow[], rule: tCollapse): { rows: tRow[]; merged: number } => {
 	const byKey = new Map<string, tRow>()
 	let merged = 0
 
 	for (const row of rows) {
-		const key = rule.keyColumns.map(column => collationKey(String(row[column]))).join('\u0000')
+		const key = rule.keyColumns.map(column => keyPart(row[column], rule, column)).join('\u0000')
 		const existing = byKey.get(key)
 
 		if (!existing) {

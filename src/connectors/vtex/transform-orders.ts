@@ -9,9 +9,9 @@ import { flag, required, toInt, toJson, toText, toUtcDate } from './values.js'
  * (docs/contrato/mascavo_etl.md). Sem I/O, sem relógio: a mesma entrada dá sempre a mesma saída.
  *
  * Convenções (docs/contrato/convencoes.md): dinheiro em centavos como a VTEX manda; datas em UTC sem fração; status em
- * inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo — nada é inventado. Em
- * coluna NOT NULL, valor ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a
- * transação inteira. As colunas relaxadas para NULL na DDL provisória estão em docs/conectores/vtex.md.
+ * inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo. Em coluna NOT NULL, valor
+ * ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a transação inteira. A
+ * exceção são 7 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
  *
  * Toda linha de uma tabela sai com as mesmas colunas (o writer exige).
  */
@@ -87,8 +87,39 @@ const openText = (value: unknown): string | null => {
 	return toText(value)
 }
 
+/**
+ * O que o ETL antigo gravava nas colunas NOT NULL quando a VTEX não mandava valor. Medido na produção (só leitura,
+ * AMO-Q15, 24/11/2026) em pedidos cancelados, aguardando pagamento e em preparação das duas lojas; servidor em modo
+ * estrito (vazio numa coluna NOT NULL é erro). Nenhum painel do Power BI lê essas colunas.
+ */
+const OLD_ETL_FALLBACK = {
+	/** lockid: sempre "00-" + número do pedido. */
+	lockId: (orderId: string) => `00-${orderId}`,
+	/** refid sem referência no SKU. */
+	refId: '-',
+	/** taxcode sem código fiscal. */
+	taxCode: '',
+	/** costprice: sempre preenchido nas amostras; *assumido, a confirmar na paridade*. */
+	costPrice: 0,
+	/** Endpoint de serviços do marketplace: o padrão do OMS com a conta. */
+	marketplaceServicesEndpoint: (account: string) => `http://oms.vtexinternal.com.br/api/oms?an=${account}`
+} as const
+
+/**
+ * Contexto da carga para os substitutos do ETL antigo. Mantém a transformação pura (sem relógio): quem chama informa.
+ * - `account`: conta VTEX (o `an=` do endpoint), quando o detalhe não traz `hostname`.
+ * - `processedAtLocal`: o "agora" da carga no relógio de São Paulo. O ETL antigo (Laravel, fuso de SP, servidor MySQL
+ *   em UTC) gravava esse horário em `authorizeddate`/`invoiceddate` quando a VTEX não mandava a data — é igual ao
+ *   `created_at` da linha na produção. Não é data de negócio: a paridade ignora essas duas colunas quando a VTEX vem
+ *   sem data.
+ */
+interface iDetailContext {
+	account: string
+	processedAtLocal: Date
+}
+
 /** vtex_order_details — PK order_id, 1:1 com vtex_orders. */
-const toDetailRow = (detail: tOrderDetail): tRow => {
+const toDetailRow = (detail: tOrderDetail, context: iDetailContext): tRow => {
 	const column = columnOf(detail.orderId)
 
 	return {
@@ -96,7 +127,9 @@ const toDetailRow = (detail: tOrderDetail): tRow => {
 		sequence: detail.sequence,
 		client_profile_id: detail.clientProfileData?.userProfileId ?? null,
 		marketplace_order_id: detail.marketplaceOrderId ?? null,
-		marketplace_services_endpoint: toText(detail.marketplaceServicesEndpoint),
+		marketplace_services_endpoint:
+			toText(detail.marketplaceServicesEndpoint) ??
+			OLD_ETL_FALLBACK.marketplaceServicesEndpoint(detail.hostname ?? context.account),
 		seller_order_id: detail.sellerOrderId ?? null,
 		origin: detail.origin,
 		affiliate_id: detail.affiliateId ?? null,
@@ -124,8 +157,8 @@ const toDetailRow = (detail: tOrderDetail): tRow => {
 		ischeckedin: flag(detail.isCheckedIn),
 		utm_source: detail.marketingData?.utmSource ?? null,
 		coupon: detail.marketingData?.coupon ?? null,
-		authorizeddate: toUtcDate(detail.authorizedDate),
-		invoiceddate: toUtcDate(detail.invoicedDate)
+		authorizeddate: toUtcDate(detail.authorizedDate) ?? context.processedAtLocal,
+		invoiceddate: toUtcDate(detail.invoicedDate) ?? context.processedAtLocal
 	}
 }
 
@@ -139,11 +172,11 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			id: required(toInt(item.id, field('id')), field('id')),
 			productid: required(toInt(item.productId, field('productid')), field('productid')),
 			ean: item.ean ?? null,
-			lockid: item.lockId ?? null,
+			lockid: item.lockId ?? OLD_ETL_FALLBACK.lockId(detail.orderId),
 			quantity: item.quantity,
 			seller: required(toInt(item.seller, field('seller')), field('seller')),
 			name: toText(item.name),
-			refid: item.refId ?? null,
+			refid: item.refId ?? OLD_ETL_FALLBACK.refId,
 			price: item.price,
 			listprice: item.listPrice,
 			manualprice: item.manualPrice ?? null,
@@ -161,8 +194,8 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			shippingprice: item.shippingPrice ?? null,
 			rewardvalue: required(item.rewardValue, field('rewardvalue')),
 			freightcommission: required(item.freightCommission, field('freightcommission')),
-			taxcode: item.taxCode ?? null,
-			costprice: item.costPrice ?? null
+			taxcode: item.taxCode ?? OLD_ETL_FALLBACK.taxCode,
+			costprice: item.costPrice ?? OLD_ETL_FALLBACK.costPrice
 		}
 	})
 
@@ -309,8 +342,8 @@ interface iDetailRows {
 }
 
 /** Todas as linhas de um pedido. Lança se algum campo não couber no tipo da coluna (ex.: seller não numérico). */
-const toDetailRows = (detail: tOrderDetail): iDetailRows => ({
-	details: toDetailRow(detail),
+const toDetailRows = (detail: tOrderDetail, context: iDetailContext): iDetailRows => ({
+	details: toDetailRow(detail, context),
 	children: {
 		[ORDER_TABLES.items]: toItemRows(detail),
 		[ORDER_TABLES.logisticsInfo]: toLogisticsInfoRows(detail),
@@ -339,4 +372,4 @@ export {
 	toShippingDataRows,
 	toTransactionRows
 }
-export type { iDetailRows }
+export type { iDetailContext, iDetailRows }

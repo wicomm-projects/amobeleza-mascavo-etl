@@ -12,8 +12,8 @@ import { maskPersonalData } from './personal-data.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
 import { readStoredItemOwners, readStoredLastChange, readStoredSellerNames } from './stored.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName, type tOrderChildTable } from './tables.js'
-import { type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
-import { toComparableUtc } from './values.js'
+import { type iDetailContext, type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
+import { saoPauloWallClock, toComparableUtc } from './values.js'
 
 /**
  * vtex-orders — pedidos da loja da marca, a cada 30 minutos.
@@ -217,10 +217,15 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const withSellerName = hasSellerName(ctx.database)
 	// seller_name: o do detalhe, quando veio nesta carga; senão, o já gravado.
 	const sellerNames = new Map(fetched.storedSellerNames)
+	// Substitutos do ETL antigo para datas que a VTEX não manda: o "agora" da carga no relógio de SP (transform-orders.ts).
+	const detailContext: iDetailContext = {
+		account: fetched.hostnameFallback ?? brand,
+		processedAtLocal: saoPauloWallClock(new Date())
+	}
 
 	for (const detail of fetched.details) {
 		try {
-			transformed.push({ detail, rows: toDetailRows(detail) })
+			transformed.push({ detail, rows: toDetailRows(detail, detailContext) })
 			sellerNames.set(detail.orderId, sellerNameOf(detail))
 		} catch (err) {
 			invalidIds.push(detail.orderId)
