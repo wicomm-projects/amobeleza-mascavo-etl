@@ -185,6 +185,24 @@ const readProduction = async (
 	)
 }
 
+/**
+ * Uma linha por chave, a de `created_at` mais recente. A produção da Amobeleza tem cada dia gravado mais de uma vez (o
+ * pipeline antigo acrescentava sem apagar: paridade de 25/11/2026); comparar com as repetições daria ~1,8x.
+ */
+const latestPerKey = (rows: readonly tRow[], keyColumns: readonly string[]): tRow[] => {
+	const byKey = new Map<string, tRow>()
+	const stamp = (row: tRow) => normalize(row.created_at) ?? ''
+
+	for (const row of rows) {
+		const key = keyColumns.map(column => normalize(row[column]) ?? '∅').join('|')
+		const current = byKey.get(key)
+
+		if (!current || stamp(row) >= stamp(current)) byKey.set(key, row)
+	}
+
+	return [...byKey.values()]
+}
+
 const sumOf = (rows: readonly tRow[], column: string): number =>
 	rows.reduce((total, row) => total + (Number(row[column]) || 0), 0)
 
@@ -249,15 +267,33 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 		}
 
 		const definition = { ...table.definition, scope: { kind: 'window', dateColumn: 'date' } as const }
-		const reread = await read(brand, first, last, [definition])
+		// As datas da produção podem ser dias soltos (a por_hora da Amobeleza tinha 4 dias espalhados num ano). Lê um dia
+		// por vez: num período longo, o GA4 junta o excesso de linhas por hora numa linha "(other)".
+		const productionDays = new Set(dates)
+		const rows: tRow[] = []
+		let rereadTable: iPreparedTable | undefined
 
-		prepared.push(...reread.prepared)
+		for (const productionDay of productionDays) {
+			const reread = await read(brand, productionDay, productionDay, [definition])
+
+			for (const prepared of reread.prepared) {
+				rereadTable ??= prepared
+				rows.push(...prepared.rows)
+			}
+		}
+
+		if (rereadTable) prepared.push({ ...rereadTable, window: { from: first, to: last }, rows })
+
 		fixedWindowTables.add(table.definition.table)
-		fixedWindowNotes.push(`${table.definition.table}: comparada nas datas da produção, ${first} a ${last}`)
+		fixedWindowNotes.push(
+			`${table.definition.table}: comparada nos ${productionDays.size} dia(s) que a produção tem, entre ${first} e ${last}`
+		)
 	}
 
 	const results: iCompareResult[] = []
-	const rowsByTable: Record<string, { production: number; novo: number }> = {}
+	const rowsByTable: Record<string, { production: number; productionDistinct: number; novo: number }> = {}
+	const rawTotalsByTable: Record<string, iTotal[]> = {}
+	const duplicateNotes: string[] = []
 	const totalsByTable: Record<string, iTotal[]> = {}
 
 	for (const table of prepared) {
@@ -267,7 +303,16 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 		if (!spec) throw new AppError(`Paridade do ga4: sem chave de comparação para ${name}.`)
 
 		// A por_hora relida em janela fixa compara com a tabela inteira da produção (são os mesmos dias).
-		const production = await readProduction(ctx, table, day, fixedWindowTables.has(name))
+		const raw = await readProduction(ctx, table, day, fixedWindowTables.has(name))
+		const production = latestPerKey(raw, spec.keyColumns)
+		const repeated = raw.length - production.length
+
+		if (repeated > 0) {
+			duplicateNotes.push(
+				`${name}: ${repeated} linha(s) repetida(s) na produção (mesma chave gravada mais de uma vez); a comparação e os ` +
+					`totais usam a gravação mais recente de cada chave`
+			)
+		}
 
 		results.push(
 			compareRows({
@@ -278,8 +323,9 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 				ignoreColumns: IGNORED_COLUMNS
 			})
 		)
-		rowsByTable[name] = { production: production.length, novo: table.rows.length }
+		rowsByTable[name] = { production: raw.length, productionDistinct: production.length, novo: table.rows.length }
 		totalsByTable[name] = totalsOf(spec.metrics, production, table.rows)
+		rawTotalsByTable[name] = totalsOf(spec.metrics, raw, table.rows)
 	}
 
 	const meta = {
@@ -288,12 +334,15 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 		window: day,
 		rows: rowsByTable,
 		totals: totalsByTable,
+		/** Totais com as linhas repetidas da produção (como o Power BI soma, se não tirar repetição). */
+		totalsWithRepeated: rawTotalsByTable,
 		readNotes,
 		acceptedDifferences: ACCEPTED_DIFFERENCES
 	}
 	const reportPath = await writeReport(`${JOB_NAME}-${brand}`, results, meta)
 	const notes = [
 		`Janela: ${day.from} a ${day.to}`,
+		...duplicateNotes,
 		...fixedWindowNotes,
 		...Object.entries(totalsByTable).flatMap(([name, totals]) => totals.map(total => totalNote(name, total))),
 		...extraNotes(results),

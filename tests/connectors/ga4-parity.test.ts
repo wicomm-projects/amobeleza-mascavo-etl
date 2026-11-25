@@ -206,6 +206,8 @@ describe('paridade do ga4', () => {
 			{ table: 'sheets_google_drive_por_hora', compared: 1, divergent: 0 }
 		])
 		expect(captured.job).toBe('ga4-amobeleza')
-		expect(summary.notes?.join(' ')).toMatch(/por_hora: comparada nas datas da produção, 2026-10-03 a 2026-10-03/)
+		expect(summary.notes?.join(' ')).toMatch(
+			/por_hora: comparada nos 1 dia\(s\) que a produção tem, entre 2026-10-03 e 2026-10-03/
+		)
 	})
 })
