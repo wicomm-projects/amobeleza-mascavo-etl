@@ -3,6 +3,7 @@ import type { iAccessResult, iJob, iSource } from '../../core/jobs/types.js'
 
 import { checkProperty } from './api.js'
 import { ga4Job, requestOf } from './job.js'
+import { ga4Parity } from './parity.js'
 import { reportsOf } from './reports.js'
 
 /**
@@ -12,7 +13,7 @@ import { reportsOf } from './reports.js'
  * colunas e pendências: docs/conectores/ga4.md.
  */
 
-const jobs: readonly iJob[] = [ga4Job]
+const jobs: readonly iJob[] = [{ ...ga4Job, parity: ga4Parity }]
 
 const checkAccess = async (brand?: tBrand): Promise<iAccessResult> => {
 	if (!brand) return { ok: false, detail: 'o GA4 roda por marca: informe --brand' }

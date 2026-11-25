@@ -1,4 +1,3993 @@
 {
-	"leiame": "De/Para de canal da Mascavo (sheets_google_drive_trafego e _vendas): origem + campanha do GA4 -> vehicle_channel_no_pay e type. Vazio até o SELECT DISTINCT só de leitura na produção (ver docs/conectores/ga4.md). Os textos de saída precisam ser idênticos aos do histórico: o Power BI se relaciona por eles. Regra com campanha vence regra só com origem. Comparação sem diferença de maiúscula/acento.",
-	"regras": []
+	"leiame": "De/Para de canal da Mascavo: \"origem / mídia\" do GA4 (sessionSourceMedium no tráfego, sourceMedium nas vendas) -> vehicle_channel_no_pay e type, uma lista por tabela, com os textos exatos de cada uma (a de tráfego é toda em minúsculas; a de vendas tem maiúsculas). Gerado de forma automática do histórico da produção (só leitura): para cada origem / mídia, o canal e o tipo vistos por último. Desde 20/06/2026 cada origem / mídia caiu num canal só e cada canal tem sempre o mesmo tipo, então a campanha não entra. Origem / mídia sem regra grava nulo e aparece nas notas da carga. Comparação sem diferença de maiúscula/acento. Ver docs/conectores/ga4.md.",
+	"fonte": {
+		"tabelas": ["sheets_google_drive_trafego", "sheets_google_drive_vendas"],
+		"de": "2025-10-01",
+		"ate": "2026-08-19",
+		"gerado_em": "2026-11-25"
+	},
+	"trafego": [
+		{
+			"origem": "(data not available)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(direct) / (none)",
+			"vehicle_channel_no_pay": "direto",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / ads",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "(not set) / cpc",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / cpl",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / display",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / https://www.mascavo.com/face/base",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / qa",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "(not set) / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "/ afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "/ social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "02122025 / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "02122025 / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "0adadasdiohasfiuashduihas[ / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "0c2112fd7e657dca5c6287a852797033.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "114.114.114.114:9421 / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "127.0.0.1:5500 / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "201.159.154.7 / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde /",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde / (none)",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde / (not set)",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde / cpc",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde / referral",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "20260622_wppc_push_on_escolha_seu_brinde / social",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "228b10c49760a8443b0902bf8581b9e6.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "25e6d294269fcd30435c242e9292d2cf.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "3909399 / affiliate",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "39e0ab57a6bea01e006838b1ef5e5540.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "536b1124a7052591128ae1393e0ea745.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "5394933eeacd94448b07688230569cf5.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "56e81cfd9135d4887115ca5ca1f808bc.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "6235901add4d1d3c31902e6803277cad.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "66fd5d8f845c3aa70c32c1f554fcb2ef.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "70f6566873dd5158b658ccd1828ce9c2.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "7b2c6e04e5fc8637f471b66a7a743d48.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "86eca7b90e20d056c7d66b65e2100052.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "8e7e30d27ff2111c5079f723abd709e8.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "93b86b1b90a95fc31b3d0a85ce4218db.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "aax.amazon-adsystem.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "accounts.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "accounts.google.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "actionpay.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "activecampaign / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "ad qcfyfuu / ilzj_ary",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "adclick.g.doubleclick.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "admanager.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "admin-catalog-facelift.vercel.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "admin.cuponomia.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "adqcfyfu / ilzjarygacgafywe",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads-preview.us.criteo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads.pinterest.com / ads",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads.tiktok.com / cpc",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads.tiktok.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads.us.criteo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ads01.groovinads.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "adsense.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "adserver.getblue.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "adsintegrity.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "adsmanager.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "aef8fb19b5967bac1be8ea106c0ecc3e.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "agazeta.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "agoracupom.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "airbnb.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ajsn / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "alpha.rapidmockup.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "altercta33632--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "amazon.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ambientetesteticket.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "amigãosecreto / amigãosecreto",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "amigosecreto.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "anacarolinacardial.substack.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "aniversario-04012026.listaideal.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "api.cactus-search.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.arktrix.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.asana.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.buzzmonitor.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.clickup.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.convert.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.dpf.cloud / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.getbee.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.hiplatform.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.mangools.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.mywishlist.co / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.partnermatic.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.pushnews.eu / referral",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.rdstation.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.rdstation.email / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.snov.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.vivo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "app.widde.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ar.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "assistant.copernic.co / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "at.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "au.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "auth.vwfs.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "autoracing.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "awin /",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / (none)",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / (not set)",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / cpc",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / onsite-pushnotification",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "awin / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "awin / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / social",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin / wpp",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "awin.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "awin1.com / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "ayosurabaya.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "b14ed3d70304b4e05d505c32e9c85950.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "b2607f8b04800100002015ba8ac182b03150b000000000000000001.proxy.googlers.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "b56bf9df96fd57922f72c6c984de1e15.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "b8one.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "babycenter.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bangkokbiznews.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "banglaboipdf.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "baru.digital / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bdbdbd / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "bdshdbhs / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "beauty-tech-non-product / qrcode",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "belezanoordinario.substack.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "beta-app.tareffa.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bing / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "bit.ly / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "blaze.bet.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "blindsearch.fejus.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "blockpage-us-east-1.safedns.mcafee.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "blue / afiliados",
+			"vehicle_channel_no_pay": "blue",
+			"type": "pago"
+		},
+		{
+			"origem": "blue / cpa",
+			"vehicle_channel_no_pay": "blue",
+			"type": "pago"
+		},
+		{
+			"origem": "blue / home",
+			"vehicle_channel_no_pay": "blue",
+			"type": "pago"
+		},
+		{
+			"origem": "blue / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "blue / retargeting",
+			"vehicle_channel_no_pay": "blue",
+			"type": "pago"
+		},
+		{
+			"origem": "blue / rev",
+			"vehicle_channel_no_pay": "blue",
+			"type": "pago"
+		},
+		{
+			"origem": "bmail.uol.com.br / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "bms.brandmonitor.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bocarosa.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bollhoff.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "booker.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bootstrapcdn.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "br.pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "br.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "br.yhs4.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "brandreward.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bravocupom.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "brc-excel.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "brc-word-edit.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "brigittecalegari.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bucolic-fudge-88b3b4.netlify.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "buscape.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "bwise / search",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "c.amazon-adsystem.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "c2bc4420f40bd3ada9c12bed04939b12.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "c31cbc1dc1ffa75db53b4b02d9f8bfcc.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "c983ca7bb9bdfb73c021b982dd78c6f2.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ca.advfn.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ca.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "cac45a40322409b2ab7be548d74020b2.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "canva.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "capgeminiclub.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cases.connect.corp.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cat.da1.us.criteo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cat.us5.us.criteo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "catalog-facelift.admin.vtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cdbdb / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "changecta33632--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "changefilterlayout24404--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "chatgpt.com / (not set)",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "chatgpt.com / ai-assistant",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "chatgpt.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "chats.weni.ai / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "checkoutbag24922--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "claudia.abril.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "click.linksynergy.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "clicktracker.getblue.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "clubededescontosgcb.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "clubededescontoshp.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "clubededescontoshpe-go5.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "clubehnk.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cluuz.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cn.bing.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "co.pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "cocktailcontessa.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cognitiveseo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "colgate.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "compfight.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "comprerural.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "conectawheaton.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "copernic.co / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "coperniccode40216--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "copilot.com / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "copilot.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "copilot.microsoft.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "criteo / (not set)",
+			"vehicle_channel_no_pay": "criteo",
+			"type": "pago"
+		},
+		{
+			"origem": "criteo / cpc",
+			"vehicle_channel_no_pay": "criteo",
+			"type": "pago"
+		},
+		{
+			"origem": "criteo / display",
+			"vehicle_channel_no_pay": "criteo",
+			"type": "pago"
+		},
+		{
+			"origem": "criteo / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "criteo.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cse.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cupoland.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cupomcerto.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cupomdesconto.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cupomvalido.com.br / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "cupomzeiros.com / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "cuponation.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cuponomia.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "cupons2u.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "customtags33868--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "d5b716b5c6a3ec7b332beee048cc501b.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "d6087194b50a5af13e25403fb881303c.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dash.weni.ai / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dashboard.lusha.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "db1178c1516a870a742d93d41b7bb558.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "de996821544328353bc7d9d009656318.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "deboacomseubolso.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "detroitnews.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dev.azure.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dhldescontos.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "diariodonordeste.verdesmares.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dimepkairos.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "discoup.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "distrokid.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "docs.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "donageisy.netlify.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "dooray.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "drawnames.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "draze.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "drogariacatarinense.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "drogariasaopaulo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "drugs.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "duckduckgo / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "duckduckgo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "eaec4ed5434919cb6be1a654c7dfe303.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ecosia.org / organic",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "edealsbr.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "edocs.s3.es.gov.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "elle.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "eluxclub-go5.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "em-lyon.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "emaecomunica.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "emojipedia.org / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "encurtador.dev / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "epharma.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "esfera.com.vc / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "euc-excel.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "euc-word-edit.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "evidencias.branddi.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "examine.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "excite.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "extra.globo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ezoic.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "f2efe6d5395eb5dd6c20e5f87fbfbe66.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "fa83411486a8174602b1e1631a5fffbf.safeframe.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook / (not set)",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook / ads",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "facebook / cpc",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "facebook / display",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook / social_post",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook.com / ads",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook.com / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "famousfix.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "fastpass.pinadmin.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "fb / paid",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "felicitous.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "festalab.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "filterfacelift32180--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "findation.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "findelio.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "firstcry.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "for9a.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "fr.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "gamma.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ganheonline.dotz.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "garnethill.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "gateway.zscalertwo.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "gateway.zscloud.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "geaerospace.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "gearloose.corp.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "gemini.google.com / ai-assistant",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "gemini.google.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "generalcorporate.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "geo.dailymotion.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "geona.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "giftful.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "glam.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "glamour.globo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "globalpost.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "google / afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "google / cpc",
+			"vehicle_channel_no_pay": "google ads",
+			"type": "pago"
+		},
+		{
+			"origem": "google / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "googleads.g.doubleclick.net / referral",
+			"vehicle_channel_no_pay": "google ads",
+			"type": "pago"
+		},
+		{
+			"origem": "googleadservices.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "goread.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "gowish.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "groovin / ads",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "groovinads / ads",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "groovinads / display",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "groovinads.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "grupouau.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "hdhdhd / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "healthkart.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "hinnetwork.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "hk01.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "homeslider33946--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "homolog--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "hub.goadopt.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "iconlet.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "idp.cevalogistics.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ig /",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ig / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ig / paid",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "ig / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "igshopping / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "igshopping / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "imageshack.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "imasdk.googleapis.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "indranacopa.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "inmagazine.ig.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ins / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ins / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ins... / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "ins... / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "insider3.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / …",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / (not set)",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / mari",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / marisaad",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / promo",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / stories",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram / story",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram_story_28_08 / ganhe_necessaire_capsula",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "instagram.com / stories",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "intelligence.clevercorporate.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "internalfb.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "intranet.bwcommerce.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "io.vtexpayments.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "it.pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "jdjdbd / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "jkprodutos.netlify.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "jouhousaga.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "joy-group.feishu.cn / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "keep.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "kiongroup.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "knowmore34977--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "l.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "l.instagram.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "l.instagram.com / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "l.threads.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "l.wl.co / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "laudos.hospitalami.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lb-jlee-pinterest.s3.us-west-1.amazonaws.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "leaflet.pub / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lefoficial.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "leoniperme.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lexxe.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "linkedin.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "linkhaitao.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "links.us1.defend.egress.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "linkslist.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "linkspdp41337824--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lintingfix0001--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lista-ideal / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "listography.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lm.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "locaweb.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "login.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "login.microsoftonline.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "lookaside.fbsbx.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ltk / affiliates_network",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "lumtest.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "m.facebook.com / ads",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "m.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "m.search.naver.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "m.youtube.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mahav-cbf.info / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mail.aol.com / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "mail.google.com / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "mail.telenet.be / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "mail.uol.com.br / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "mail.yahoo.com / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "maisvantagens.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "managedq.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "manus.im / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "marketing.criteo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "marketo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mascavo.vtexcommercestable.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mcdonalds.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "melhorcomprar.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "meli-gpt.adminml.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "meli.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "meliuz.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mercos.my.salesforce.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "metakosmos.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "metropoles.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "minicartrelayout33642--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mlr.itim.vn / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "monday.my.site.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "monstercrawler.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mx.pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "my.mspyonline.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "my.stripo.email / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "myflorida.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mywishlist.online / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "mywishlist.pt / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "nappo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "narscosmetics.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "natura.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "neoenergiabr.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "netfirms.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "news.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "nextgeeker.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "nike.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "njbfjhkd / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "nossoclube.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "noticiasdatv.uol.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "notifpush.com / referral",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "ntp.msn.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "nz.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "oceanhero.today / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "omgili.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "omnibeauty.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "oolone.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "opovo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "orderbytopsaledesc / social_instagram",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "out.smore.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "outlook.cloud.microsoft / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "outlook.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "outro-ygvn.listaideal.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pagbrasil.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "paid.outbrain.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "painel-v2.grupocomando.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "painel.devrocket.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "paletacorespdp40828861--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "panel.groovinads.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "papacupom.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "payments.koin.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pdavisagemakeln.my.canva.site / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pdpprocurler22643--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pedidoscbu.netlify.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pentest-tools.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "perplexity / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "perplexity.ai / ai-assistant",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "perplexity.ai / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "photoshelter.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinboard.opera.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinterest / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinterest / ads",
+			"vehicle_channel_no_pay": "pinterest ads",
+			"type": "pago"
+		},
+		{
+			"origem": "pinterest / cpc",
+			"vehicle_channel_no_pay": "pinterest ads",
+			"type": "pago"
+		},
+		{
+			"origem": "pinterest / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinterest.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pixlr.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pje.tjma.jus.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "playerauctions.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "plpbrowsing30060--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "plpspacing34979--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "plugin.pulpoar.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "portal.flexispy.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "poshstreet.shop / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "premium.beautystreams.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "prensalibre.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "prescricao.cfm.org.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "presentesnica.framer.website / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "proconsaopaulo.crm2.dynamics.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "promobit.com.br / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "providesupport.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "pt-br.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "pt.semrush.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "publisher.rakutenadvertising.com / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "pushnews / (not set)",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "pushnews / onsite-pushnotification",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "pushnews / pushnotification",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "qualitydigital.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "quemdisseberenice.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "quickaccess.internet.apps.samsung.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "quinze-anos-pgmw.listaideal.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "r.fkzf.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rakuten /",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "rakuten / (not set)",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "rakuten / afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "rankia.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rating.ewoq.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rcellone.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rcgroups.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd / sms",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd / whatsapp",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / push_web",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / sms",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / whatsapp",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd-br.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd+station / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rdstation / sms",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "reclame-aqui-compare / botao-contato",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "reclameaqui.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "record.r7.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "redes sociais / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "rendo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "resultadosdigitais.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "review.intern.facebook.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "review.internalfb.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "revistabag.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "revistaforum.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "roysearch.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "rp / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "runrun.it / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "safe.menlosecurity.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sajsbja / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "sbhuiahs / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "scotsman.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search-dra.dt.dbankcloud.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search.app / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search.brave.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search.ccleanerbrowser.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "search.nortonsafesearch.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "secretsanta22.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "securelinks.cloud-security.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sellercentral.amazon.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "service.yourviews.com.br / referral",
+			"vehicle_channel_no_pay": "yourviews",
+			"type": "não pago"
+		},
+		{
+			"origem": "setsimilaskunumerical15041--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sfmc / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "sfmc / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "sfmc / sms",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "sfmc / wpp",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "shein.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "shop.dior.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "shop.mango.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "shopee.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "shopmy / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "shopping-product-identity.datacompute.google.com / referral",
+			"vehicle_channel_no_pay": "google ads",
+			"type": "pago"
+		},
+		{
+			"origem": "shoppingalelo.cuponeria.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sjdbjs / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "skuselectorunavailableproduct15202--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sms / rdstation",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "social_instagram / (not set)",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "social_instagram / mascavo_stories",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "social_instagram / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "socialads / meta",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "sogou / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "solitaire.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "soorsa.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "southernliving.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "static.criteo.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "statics.teams.cdn.office.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "stealthelook.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "stellantisclub.gointegro.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "stoneco.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "storage.googleapis.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "stylig.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "substack / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "substack.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "superbannerlinked--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "suporte.blan.digital / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "surpreenda.naotempreco.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "sweetsearch.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "syndicatedsearch.goog / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "t.co / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tagassistant.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tappaysdk.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "teams.public.onecdn.static.microsoft / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "teamtreehouse.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "teluguone.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "temp-mail.org / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "texcourier.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "thiagorodrigo / afiliados",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "thiagorodrigo.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "threads / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "threads.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ticktick.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tigerdirect.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tiktok / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "tiktok / cpc",
+			"vehicle_channel_no_pay": "tiktok ads",
+			"type": "pago"
+		},
+		{
+			"origem": "tiktok / cpm",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "tiktok / paid",
+			"vehicle_channel_no_pay": "tiktok ads",
+			"type": "pago"
+		},
+		{
+			"origem": "tiktok / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "tiktok.com / cpc",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "tiktok.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "titan.hostgator.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tmedc.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "toodledo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "topperlearning.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "tpc.googlesyndication.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "translate.google.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "trello.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "twicsy.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "u14876330.ct.sendgrid.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "u1534741.ct.sendgrid.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ui-deref.de / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "ui.awin.com / referral",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
+		},
+		{
+			"origem": "uk.pinterest.com / referral",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "uk.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "uol.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "url-opener.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "url.emailprotection.link / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "usc-powerpoint.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "user-content.s12.sfmc-content.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "vault.shopify.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "veja.abril.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "vejasp.abril.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "vidoopubs.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "view.appen.io / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "virtualpulpoar33897--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "voxusmediamanager / cpl",
+			"vehicle_channel_no_pay": "voxus",
+			"type": "pago"
+		},
+		{
+			"origem": "w3newspapers.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "web.flow.opera.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "web.telegram.org / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "web.whatsapp.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "webfetch.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "webmail-seguro.com.br / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "webmail.predialnet.com.br / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "webmail02.uoa.gr / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "webmailpro.uol.com.br / referral",
+			"vehicle_channel_no_pay": "e-mail orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "webnocular.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "wecodedigital.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "weixin110.qq.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "wepink.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "wethegeek.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "widde / share",
+			"vehicle_channel_no_pay": "widde",
+			"type": "pago"
+		},
+		{
+			"origem": "widde.atlassian.net / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "wishlist.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "word-edit.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "www-mascavo-com.translate.goog / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "www.newsletterdazelia.com.br / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "yabigo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "yahoo / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "yahoo.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "yandex / organic",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "yandex.ru / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "yesware.com / referral",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "yourviews / (not set)",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "yourviews / email",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "yourviews / yv_mail",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "yourviews&utm_medium=yv_mail&utm_campaign=yv_writereview / (not set)",
+			"vehicle_channel_no_pay": "e-mail",
+			"type": "não pago"
+		},
+		{
+			"origem": "youtube.com / referral",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		}
+	],
+	"vendas": [
+		{
+			"origem": "(direct) / (none)",
+			"vehicle_channel_no_pay": "Direto",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set) / afiliados",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "(not set) / cpc",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set) / cpl",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set) / onsite-pushnotification",
+			"vehicle_channel_no_pay": "Push",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set) / qa",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(not set) / social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "(unattributable) / (unattributable)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "/ afiliados",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "20260622_WPPC_PUSH_ON_ESCOLHA_SEU_BRINDE /",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "20260622_WPPC_PUSH_ON_ESCOLHA_SEU_BRINDE / (not set)",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "20260622_WPPC_PUSH_ON_ESCOLHA_SEU_BRINDE / cpc",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ActiveCampaign / email",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "admin-catalog-facelift.vercel.app / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ads.us.criteo.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "amigosecreto.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "app.convert.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "app.mywishlist.co / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "assistant.copernic.co / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "at.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "awin /",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "awin / (not set)",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "awin / afiliados",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "awin / onsite-pushnotification",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "awin / referral",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "awin / wpp",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "awin.lightning.force.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "beauty-tech-non-product / qrcode",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "bing / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "bit.ly / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "blue / Afiliados",
+			"vehicle_channel_no_pay": "Blue",
+			"type": "Pago"
+		},
+		{
+			"origem": "blue / cpa",
+			"vehicle_channel_no_pay": "Blue",
+			"type": "Pago"
+		},
+		{
+			"origem": "blue / rev",
+			"vehicle_channel_no_pay": "Blue",
+			"type": "Pago"
+		},
+		{
+			"origem": "bmail.uol.com.br / referral",
+			"vehicle_channel_no_pay": "E-mail orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "br.pinterest.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "br.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "br.yhs4.search.yahoo.com / referral",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "bravocupom.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "canva.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "catalog-facelift.admin.vtex.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "changefilterlayout24404--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "chatgpt.com / (not set)",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "chatgpt.com / ai-assistant",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "chatgpt.com / referral",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "Criteo / display",
+			"vehicle_channel_no_pay": "Criteo",
+			"type": "Pago"
+		},
+		{
+			"origem": "cupoland.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "cupomvalido.com.br / referral",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "cupomzeiros.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "cuponation.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "cuponomia.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "drawnames.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "duckduckgo / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ecosia.org / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "elle.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "esfera.com.vc / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "facebook / (not set)",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "facebook / ads",
+			"vehicle_channel_no_pay": "Facebook Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "facebook / cpc",
+			"vehicle_channel_no_pay": "Facebook Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "facebook / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "facebook.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "fb / paid",
+			"vehicle_channel_no_pay": "Facebook Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "gemini.google.com / ai-assistant",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "google / cpc",
+			"vehicle_channel_no_pay": "Google Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "google / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "googleads.g.doubleclick.net / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ig / (not set)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ig / cpc",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ig / paid",
+			"vehicle_channel_no_pay": "Facebook Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "ig / social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "IGShopping / (not set)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "IGShopping / Social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "Ins... / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "Instagram / (not set)",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "Instagram / Mari",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram / marisaad",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram / promo",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "Instagram / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram / social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram / stories",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram / story",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram_story_28_08 / ganhe_necessaire_capsula",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "instagram.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "io.vtexpayments.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "keep.google.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "l.facebook.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "l.instagram.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "l.instagram.com / Social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "l.wl.co / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "lista-ideal / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "m.facebook.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "mail.google.com / referral",
+			"vehicle_channel_no_pay": "E-mail orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "mail.uol.com.br / referral",
+			"vehicle_channel_no_pay": "E-mail orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "meliuz.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "metakosmos.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "nappo.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "nextgeeker.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "noticiasdatv.uol.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "OrderByTopSaleDESC / social_instagram",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "paletacorespdp40828861--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "payments.koin.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "perplexity.ai / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "pinterest / ads",
+			"vehicle_channel_no_pay": "Pinterest Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "Pinterest / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "plugin.pulpoar.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "presentesnica.framer.website / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "publisher.rakutenadvertising.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "pushnews / (not set)",
+			"vehicle_channel_no_pay": "Push",
+			"type": "Não pago"
+		},
+		{
+			"origem": "pushnews / onsite-pushnotification",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "pushnews / pushnotification",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "quickaccess.internet.apps.samsung.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "r.srvtrck.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "rakuten / (not set)",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "rakuten / afiliados",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "rd / sms",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "rd / whatsapp",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / (not set)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / email",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / sms",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / whatsapp",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "rd-br.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD+Station / email",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "rdstation / sms",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "redes sociais / Social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "search.brave.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "sfmc / (not set)",
+			"vehicle_channel_no_pay": "Outros",
+			"type": "Não pago"
+		},
+		{
+			"origem": "sfmc / email",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "sfmc / sms",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "sfmc / wpp",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "social_instagram / mascavo_stories",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "social_instagram / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "statics.teams.cdn.office.net / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "tagassistant.google.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "teams.public.onecdn.static.microsoft / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "ThiagoRodrigo / Afiliados",
+			"vehicle_channel_no_pay": "Afiliado",
+			"type": "Pago"
+		},
+		{
+			"origem": "threads / social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "tiktok / cpc",
+			"vehicle_channel_no_pay": "TikTok Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "tiktok / paid",
+			"vehicle_channel_no_pay": "TikTok Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "tiktok / social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "tiktok.com / referral",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "uol.com.br / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "virtualpulpoar33897--mascavo.myvtex.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "voxusmediamanager / cpl",
+			"vehicle_channel_no_pay": "Voxus",
+			"type": "Pago"
+		},
+		{
+			"origem": "web.telegram.org / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "widde / share",
+			"vehicle_channel_no_pay": "widde",
+			"type": "Pago"
+		},
+		{
+			"origem": "word-edit.officeapps.live.com / referral",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "yahoo / organic",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "yourviews / email",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "yourviews / yv_mail",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "youtube.com / referral",
+			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		}
+	]
 }

@@ -3,7 +3,8 @@ import type { protos } from '@google-analytics/data'
 import type { tBrand } from '../../config/index.js'
 import type { tRow } from '../../core/db/index.js'
 
-import type { iChannelClassifier } from './de-para.js'
+import type { iChannelClassifier, tChannelTable } from './de-para.js'
+import { lowerText } from './text.js'
 import type { iGa4Row, tCollapse } from './transform.js'
 
 /**
@@ -58,6 +59,8 @@ interface iReportDefinition {
 	/** Devolve também linhas com todas as métricas zeradas (o padrão do GA4 é omitir). */
 	keepEmptyRows?: boolean
 	scope: tReportScope
+	/** Lista do De/Para de canal desta tabela (só Mascavo: trafego e vendas). Sem ela, canal e tipo não entram. */
+	channelRules?: tChannelTable
 	/** Linhas que o MySQL veria como a mesma chave primária (collation sem maiúscula/acento). */
 	collapse?: tCollapse
 	toRow: (row: iGa4Row, context: iRowContext) => tRow
@@ -84,13 +87,17 @@ const event = (name: string): tFilterExpression => ({
 /**
  * O Power BI chama `event_count` de "Sessões". *Assumido, a confirmar na paridade*: contagem do evento session_start
  * (≈ sessões). Se a paridade mostrar que era o total de eventos, basta tirar o filtro.
+ *
+ * A origem é "origem / mídia" (`sessionSourceMedium`, ex.: "google / cpc"), como a produção guarda. Só esta tabela grava
+ * origem e campanha em minúsculas; o De/Para de canal recebe os textos já em minúsculas.
  */
 const mascavoTrafego: iReportDefinition = {
 	table: 'sheets_google_drive_trafego',
-	dimensions: ['date', 'sessionSource', 'sessionCampaignName', 'platformDeviceCategory'],
+	dimensions: ['date', 'sessionSourceMedium', 'sessionCampaignName', 'platformDeviceCategory'],
 	metrics: ['eventCount'],
 	dimensionFilter: event('session_start'),
 	scope: { kind: 'window', dateColumn: 'date' },
+	channelRules: 'trafego',
 	// Índice único da produção: (date, ga4_property_id, session_source(100), session_campaign_name(100),
 	// platform_device_category(100), vehicle_channel_no_pay(100), type(100)), em utf8mb4_unicode_ci.
 	collapse: {
@@ -113,8 +120,8 @@ const mascavoTrafego: iReportDefinition = {
 		sumColumns: ['event_count']
 	},
 	toRow: (row, { propertyId, channel }) => {
-		const source = row.text('sessionSource')
-		const campaign = row.text('sessionCampaignName')
+		const source = lowerText(row.text('sessionSourceMedium'))
+		const campaign = lowerText(row.text('sessionCampaignName'))
 
 		return {
 			date: row.date('date'),
@@ -130,15 +137,24 @@ const mascavoTrafego: iReportDefinition = {
 }
 
 /**
- * `source` e `campaignName` são as dimensões atribuídas ao evento-chave (a "campanha do evento" do Supermetrics).
- * `conversions` ← `keyEvents` (todos os eventos-chave da propriedade). `investment` era texto calculado na planilha e não
- * existe no GA4: fica nulo até combinar a regra.
+ * `sourceMedium` e `campaignName` são as dimensões atribuídas ao evento-chave (a "campanha do evento" do Supermetrics);
+ * `source` grava "origem / mídia" como o GA4 manda, com maiúsculas.
+ * `conversions` ← `keyEvents:purchase` (só o evento-chave de compra, atribuído: pode ter fração, como na produção). A
+ * paridade de 25/11/2026 mostrou que o total de `keyEvents` (todos os eventos-chave: view_item, add_to_cart,
+ * begin_checkout, purchase) dava ~99x o histórico e criava linhas sem venda. `investment` não existe no GA4: o
+ * pipeline antigo gravava "0" (texto) em toda linha, e o novo grava igual.
  */
+/** Evento-chave de compra: o "conversions" do histórico. */
+const PURCHASE_KEY_EVENT = 'keyEvents:purchase'
+/** O pipeline antigo gravava "0" em `investment` em toda linha (paridade, 25/11/2026). */
+const OLD_INVESTMENT = '0'
+
 const mascavoVendas: iReportDefinition = {
 	table: 'sheets_google_drive_vendas',
-	dimensions: ['date', 'source', 'campaignName', 'platformDeviceCategory'],
-	metrics: ['purchaseRevenue', 'keyEvents'],
+	dimensions: ['date', 'sourceMedium', 'campaignName', 'platformDeviceCategory'],
+	metrics: ['purchaseRevenue', PURCHASE_KEY_EVENT],
 	scope: { kind: 'window', dateColumn: 'date' },
+	channelRules: 'vendas',
 	// Índice único da produção: (date, ga4_property_id(50), source(100), event_campaign_name(100),
 	// platform_device_category(50), purchase_revenue, conversions, vehicle_channel_no_pay(50), type(50), investment(50)).
 	// Juntamos pelas colunas de texto (sem as métricas) e somamos receita e conversões: junta um pouco mais que o índice,
@@ -164,7 +180,7 @@ const mascavoVendas: iReportDefinition = {
 		sumColumns: ['purchase_revenue', 'conversions']
 	},
 	toRow: (row, { propertyId, channel }) => {
-		const source = row.text('source')
+		const source = row.text('sourceMedium')
 		const campaign = row.text('campaignName')
 
 		return {
@@ -174,16 +190,16 @@ const mascavoVendas: iReportDefinition = {
 			event_campaign_name: campaign,
 			platform_device_category: row.text('platformDeviceCategory'),
 			purchase_revenue: row.money('purchaseRevenue'),
-			conversions: row.money('keyEvents'),
+			conversions: row.money(PURCHASE_KEY_EVENT),
 			...channel.classify(source, campaign),
-			investment: null
+			investment: OLD_INVESTMENT
 		}
 	}
 }
 
 const mascavoUsers: iReportDefinition = {
 	table: 'sheets_google_drive_users',
-	dimensions: ['date', 'sessionSource'],
+	dimensions: ['date', 'sessionSourceMedium'],
 	metrics: ['firstTimePurchasers', 'newUsers'],
 	scope: { kind: 'window', dateColumn: 'Date' },
 	// PK (Date, Session_source) com Session_source em utf8mb4_bin: "Google" e "google" são linhas diferentes na produção.
@@ -194,7 +210,7 @@ const mascavoUsers: iReportDefinition = {
 	},
 	toRow: row => ({
 		Date: row.date('date'),
-		Session_source: row.text('sessionSource'),
+		Session_source: row.text('sessionSourceMedium'),
 		First_time_purchasers: row.count('firstTimePurchasers'),
 		New_users: row.count('newUsers')
 	})
@@ -206,7 +222,7 @@ const mascavoUsers: iReportDefinition = {
  */
 const mascavoItems: iReportDefinition = {
 	table: 'sheets_google_drive_items',
-	dimensions: ['date', 'sessionSource', 'itemName'],
+	dimensions: ['date', 'sessionSourceMedium', 'itemName'],
 	metrics: ['itemRevenue', 'itemsPurchased'],
 	scope: { kind: 'window', dateColumn: 'Date' },
 	collapse: {
@@ -216,9 +232,10 @@ const mascavoItems: iReportDefinition = {
 	},
 	toRow: row => ({
 		Date: row.date('date'),
-		Session_source: row.text('sessionSource'),
+		Session_source: row.text('sessionSourceMedium'),
 		Item_name: row.text('itemName'),
-		Item_revenue: row.number('itemRevenue'),
+		// Duas casas, como a produção (o GA4 manda ex.: 873.999999 para 874).
+		Item_revenue: row.money('itemRevenue'),
 		Item_purchase_quantity: row.count('itemsPurchased')
 	})
 }
@@ -235,7 +252,9 @@ const mascavoCategory: iReportDefinition = {
 	orderBys: [{ metric: { metricName: 'itemsPurchased' }, desc: true }],
 	keepEmptyRows: true,
 	scope: { kind: 'since', startDate: CATEGORY_START_DATE },
-	collapse: { keyColumns: ['Item_name'], keep: 'first' },
+	// Uma linha por (categoria, categoria 2, item), diferenciando maiúscula e acento, como o índice único da produção
+	// (utf8mb4_0900_as_cs). A paridade de 25/11/2026 mostrou que a produção guarda todas as combinações, não uma por item.
+	collapse: { keyColumns: ['Item_category', 'Item_category_2', 'Item_name'], match: 'exact', keep: 'first' },
 	toRow: row => ({
 		Item_category: row.text('itemCategory'),
 		Item_category_2: row.text('itemCategory2'),

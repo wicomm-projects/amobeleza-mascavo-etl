@@ -8,12 +8,13 @@ import { collationKey } from './text.js'
 /**
  * De/Para de canal (só Mascavo: sheets_google_drive_trafego e _vendas).
  *
- * Nas planilhas do Supermetrics, `vehicle_channel_no_pay` (ex.: "google ads", "crm", "direto", "pesquisa orgânica") e
- * `type` (pago / não pago) eram colunas calculadas. O GA4 não as tem: a classificação vem de `de-para.json`, montado a
- * partir do histórico com `SELECT DISTINCT` só de leitura na produção. Origem/campanha sem regra grava as duas colunas
- * nulas e entra na lista de pendências das `notes` do resumo.
+ * Nas planilhas do Supermetrics, `vehicle_channel_no_pay` (ex.: "google ads", "crm", "direto") e `type` (pago / não
+ * pago) eram colunas calculadas. O GA4 não as tem: a classificação vem de `de-para.json`, montado a partir do histórico
+ * da produção (só leitura), com uma lista de regras por tabela e os textos exatos de cada uma (o tráfego grava em
+ * minúsculas; as vendas, "Google Ads" / "Pago"). A regra é por "origem / mídia". "origem / mídia" sem regra grava as
+ * duas colunas nulas e entra na lista de pendências das `notes` do resumo.
  *
- * Uma regra com `campanha` vence a regra só com `origem` (ex.: "google" + "(organic)" ≠ "google" + campanha paga).
+ * Uma regra com `campanha` (opcional, para ajustes futuros) vence a regra só com `origem`.
  */
 
 const ruleSchema = z.object({
@@ -25,8 +26,12 @@ const ruleSchema = z.object({
 
 const deParaSchema = z.object({
 	leiame: z.string().optional(),
-	regras: z.array(ruleSchema)
+	fonte: z.unknown().optional(),
+	trafego: z.array(ruleSchema),
+	vendas: z.array(ruleSchema)
 })
+
+type tChannelTable = 'trafego' | 'vendas'
 
 interface iChannel {
 	vehicle_channel_no_pay: string | null
@@ -44,7 +49,7 @@ const UNMAPPED: iChannel = { vehicle_channel_no_pay: null, type: null }
 
 const pairKey = (source: string, campaign: string) => `${collationKey(source)}\u0000${collationKey(campaign)}`
 
-const createChannelClassifier = (input: unknown = deParaFile): iChannelClassifier => {
+const createChannelClassifier = (table: tChannelTable, input: unknown = deParaFile): iChannelClassifier => {
 	const parsed = deParaSchema.safeParse(input)
 
 	if (!parsed.success) {
@@ -53,17 +58,18 @@ const createChannelClassifier = (input: unknown = deParaFile): iChannelClassifie
 		throw new AppError(`de-para.json inválido: ${issue?.path.join('.') ?? ''} ${issue?.message ?? ''}`.trim())
 	}
 
+	const rules = parsed.data[table]
 	const byPair = new Map<string, iChannel>()
 	const bySource = new Map<string, iChannel>()
 
-	for (const rule of parsed.data.regras) {
+	for (const rule of rules) {
 		const channel = { vehicle_channel_no_pay: rule.vehicle_channel_no_pay, type: rule.type }
 		const key = rule.campanha === undefined ? collationKey(rule.origem) : pairKey(rule.origem, rule.campanha)
 		const target = rule.campanha === undefined ? bySource : byPair
 
 		if (target.has(key)) {
 			throw new AppError(
-				`de-para.json: regra repetida para ${rule.origem} / ${rule.campanha ?? '(qualquer campanha)'}`
+				`de-para.json: regra repetida em ${table} para ${rule.origem} / ${rule.campanha ?? '(qualquer campanha)'}`
 			)
 		}
 
@@ -84,8 +90,8 @@ const createChannelClassifier = (input: unknown = deParaFile): iChannelClassifie
 		return UNMAPPED
 	}
 
-	return { classify, unmapped: () => [...missing.values()], ruleCount: parsed.data.regras.length }
+	return { classify, unmapped: () => [...missing.values()], ruleCount: rules.length }
 }
 
 export { createChannelClassifier }
-export type { iChannel, iChannelClassifier }
+export type { iChannel, iChannelClassifier, tChannelTable }
