@@ -272,7 +272,10 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 		if (useVersionCache) rememberVersions(pending)
 
-		logger.info({ orders: pending.length, written }, 'AnyMarket: lote gravado')
+		logger.info(
+			{ orders: pending.length, written },
+			options.dryRun ? 'AnyMarket: lote processado (dry-run, nada gravado)' : 'AnyMarket: lote gravado'
+		)
 	}
 
 	for await (const page of pages) {
@@ -328,4 +331,4 @@ const anymarketOrdersJob: iJob = {
 	run
 }
 
-export { anymarketOrdersJob, resolveWindow, sliceWindow }
+export { anymarketOrdersJob, rawOrderId, resolveWindow, sliceWindow }
