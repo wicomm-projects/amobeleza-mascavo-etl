@@ -66,6 +66,8 @@ interface iParityContext {
 interface iParitySummary {
 	reportPath: string
 	tables: { table: string; compared: number; divergent: number }[]
+	/** Observações para o operador (janela, amostra, pedidos fora da comparação). Sem dado pessoal. */
+	notes?: string[]
 }
 
 interface iJob {

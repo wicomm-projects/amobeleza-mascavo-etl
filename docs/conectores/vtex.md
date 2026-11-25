@@ -123,7 +123,7 @@ Grafia das colunas exatamente como no dicionário (`docs/contrato/mascavo_etl.md
 - **`vtex_order_details`**: campos do topo do detalhe; `client_profile_id` = `clientProfileData.userProfileId`;
   `totals_items|discounts|shipping|taxes` = `totals[]` com id `Items|Discounts|Shipping|Tax` (0 quando o total não vem);
   `utm_source`/`coupon` = `marketingData`; `opentextfield` = `openTextField.value`; `commercialconditiondata` em JSON;
-  `order_group` = `orderGroup` (sem ele, o `orderId` sem o sufixo `-01`).
+  `order_group` = `orderGroup` (sem ele, nulo, como o ETL antigo: o Power BI faz `IFNULL(order_group, order_id)`).
 - **`vtex_order_items`**: `items[]` em minúsculas (`uniqueId`→`uniqueid`, `productId`→`productid`...); `id`, `productid`
   e `seller` convertidos para inteiro; `additionalinfo` em JSON.
 - **`vtex_order_logistics_info` / `_delivery_ids`**: `shippingData.logisticsInfo[]` e `.deliveryIds[]`; `sku_id` =
@@ -223,20 +223,60 @@ npm run etl -- run vtex-orders --brand mascavo --fixture src/connectors/vtex/fix
 npm run etl -- run vtex-catalog --brand mascavo --fixture src/connectors/vtex/fixtures/vtex-catalog.json
 ```
 
+## Paridade com a produção
+
+```bash
+npm run etl -- parity vtex-orders --brand mascavo --sample 100   # janela padrão: 7 dias, 30 dias antes da parada
+npm run etl -- parity vtex-catalog --brand mascavo --sample 100
+```
+
+Lê a VTEX (só GET) e a produção (SELECT por chave, com LIMIT, usuário só leitura), transforma em memória com as
+mesmas funções da carga e compara coluna a coluna. Nada é gravado. O relatório completo vai para `reports/` (fora do
+Git); diferença em coluna pessoal sai como `[mascarado]`. Plano: `docs/planos/2026-11-24-paridade-vtex.md`.
+
+- **Pedidos que mudaram depois** do ETL antigo (`last_change` diferente) entram num grupo próprio, com as colunas de
+  andamento (status, datas, travas) fora da comparação: `VOLATILE_COLUMNS` em `orders-parity.ts`.
+- **Diferenças aceitas** (_assumidas, a confirmar_) ficam no relatório, mas não contam como divergência:
+  `ACCEPTED_DIFFERENCES` em `orders-parity.ts` e `catalog-parity.ts`, cada uma com o motivo.
+
+**Resultado de 24/11/2026** (pedidos de 02 a 09/09/2026; catálogo atual):
+
+| Marca     | Pedidos (100, 11 tabelas)      | Catálogo (árvore, mapa e 100 produtos)                                    |
+| --------- | ------------------------------ | ------------------------------------------------------------------------- |
+| Mascavo   | 0 divergência fora das aceitas | 0, exceto 1 produto renomeado e desativado na VTEX depois da carga antiga |
+| Amobeleza | 0 divergência fora das aceitas | 0 (a Amobeleza não grava `vtex_products`)                                 |
+
+O que a paridade mostrou e já foi corrigido no ETL novo:
+
+- pedido de marketplace (ex.: Panvel, `PVL-`) vem com o pagamento sem `id`: o schema recusava o pedido inteiro; agora
+  `payment_id` = `"0"`, como o ETL antigo;
+- `order_group` nulo quando a VTEX não manda (o Power BI faz `IFNULL(order_group, order_id)`);
+- `seller_name` (Amobeleza) com o nome do seller também na própria loja ("Amobeleza"), não nulo;
+- comparação de JSON pelo conteúdo (a coluna JSON do MySQL reordena as chaves).
+
+O que a paridade mostrou sobre o ETL antigo (diferenças que o ETL novo **não** reproduz):
+
+- **Mascavo: pedido gravado uma vez e nunca atualizado.** 0 de 200 pedidos de agosto com o status de hoje
+  (`handling`/`start-handling` gravados, `invoiced` na VTEX). O ETL novo atualiza o pedido quando o `lastChange` muda
+  (janela de 45 dias). Na Amobeleza, 199 de 200 estavam atualizados.
+- Mascavo: `vtex_orders.total_items` = 0 em todo pedido; `vtex_products` com `"0"` em `description`,
+  `description_short`, `key_words`, `meta_tag_description` e `ad_words_remarketing_code`.
+- E-mail do perfil vazio em cerca de metade dos perfis (a VTEX manda o e-mail-alias); `department` das raízes com o
+  nome da primeira raiz; colunas que o ETL antigo não preenchia (`shipping_estimated_date*`, `is_active` da transação).
+
 ## Pendências (dependem de chave, `schema:pull` ou paridade)
 
 1. `check-access` real e primeira carga com chave (só no Docker local).
 2. ~~`schema:pull`~~ feito em 24/11/2026: estrutura real aplicada; as 7 colunas NOT NULL usam o substituto do ETL antigo (acima).
-3. Paridade (`parity` ainda não implementado no conector; entra quando houver usuário só leitura):
+3. Paridade (implementada em 24/11/2026, ver "Paridade com a produção"; o que ainda falta conferir):
     - ~~centavos em itens, detalhes, pagamentos e logística~~ — medido em 24/11/2026: reais (ver Convenções);
     - o que o ETL antigo gravava em `invoiceddate`/`authorizeddate` de pedido sem data;
     - se a lista antiga incluía pedidos incompletos (a VTEX tem `incompleteOrders`; não passamos o filtro e o padrão da
       API não está documentado — comparar a contagem de `order_is_complete = 0`);
-    - `department` em `vtex_category_tree` (`id` e `sub_category_id` já medidos em 24/11/2026). Na paridade do
-      catálogo, `id` dessa tabela é dado de negócio (o Power BI liga por ele): não deixar no `DEFAULT_IGNORED`;
+    - `department` em `vtex_category_tree`: aceito como diferença até conferir o Power BI da Amobeleza (AMO-Q24);
     - `vtex_client_profile.type` (`cpf`/`cnpj` ou outro texto);
     - formato de booleano em `varchar` (`vtex_products.show_without_stock`);
-    - `amobeleza_etl.vtex_orders.seller_name` (origem e valor para a própria loja: nulo ou vazio);
+    - ~~`amobeleza_etl.vtex_orders.seller_name`~~ — medido: nome do seller, inclusive "Amobeleza";
     - item que muda de pedido por `uniqueId` repetido: hoje fica com o pedido alterado por último; ver nas notas se
       algum pedido cancelado "tomou" o item de um faturado e, se for o caso, desempatar a favor do não cancelado.
 4. `vtex_produto_categoria` (só Amobeleza): fora desta fase, ver "Diferenças entre os bancos".

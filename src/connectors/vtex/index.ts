@@ -3,8 +3,10 @@ import { HttpError } from '../../core/errors.js'
 import type { iAccessResult, iJob, iSource } from '../../core/jobs/types.js'
 
 import { catalogJob } from './catalog-job.js'
+import { catalogParity } from './catalog-parity.js'
 import { createBrandApi } from './client.js'
 import { ordersJob } from './orders-job.js'
+import { orderParity } from './orders-parity.js'
 
 /**
  * VTEX — pedidos e catálogo das duas lojas (etapa 1 do roadmap). Uma fonte por marca: mascavo → mascavo_etl,
@@ -14,7 +16,10 @@ import { ordersJob } from './orders-job.js'
  * - vtex-catalog (1x/dia): vtex_products, vtex_skus_and_products_id, vtex_category_tree.
  */
 
-const jobs: readonly iJob[] = [ordersJob, catalogJob]
+const jobs: readonly iJob[] = [
+	{ ...ordersJob, parity: orderParity },
+	{ ...catalogJob, parity: catalogParity }
+]
 
 const describeError = (err: unknown): string => {
 	if (err instanceof HttpError) return err.status ? `HTTP ${err.status}` : 'falha de rede'

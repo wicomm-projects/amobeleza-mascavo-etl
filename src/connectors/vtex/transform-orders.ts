@@ -13,13 +13,10 @@ import { flag, required, toInt, toJson, toReais, toText, toUtcDate } from './val
  * sem fração; status em inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo. Em
  * coluna NOT NULL, valor
  * ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a transação inteira. A
- * exceção são 7 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
+ * exceção são 8 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
  *
  * Toda linha de uma tabela sai com as mesmas colunas (o writer exige).
  */
-
-/** Sufixo do seller no ID do pedido ("1665527299796-01" → "1665527299796"). */
-const ORDER_SUFFIX = /-\d+$/
 
 const TOTAL_IDS = { items: 'Items', discounts: 'Discounts', shipping: 'Shipping', taxes: 'Tax' } as const
 
@@ -68,12 +65,13 @@ const toOrderRow = (order: tListOrder, hostnameFallback: string | null): tRow =>
 const MAIN_SELLER_ID = '1'
 
 /**
- * `seller_name` (só amobeleza_etl.vtex_orders): nome do seller do pedido quando é um seller terceiro; nulo quando é a
- * própria loja — o Power BI lê "seller vazio = Amobeleza". Na VTEX cada pedido (depois do split) tem um seller só.
- * A regra exata do ETL antigo não está documentada: confirmar na paridade.
+ * `seller_name` (só amobeleza_etl.vtex_orders): nome do seller do pedido, inclusive da própria loja. Medido na paridade
+ * (só leitura, 24/11/2026): o ETL antigo gravou "Amobeleza" em 45 de 45 pedidos da loja, não nulo. Na VTEX cada pedido
+ * (depois do split) tem um seller só; se vier mais de um, vale o primeiro terceiro, senão a própria loja.
  */
 const sellerNameOf = (detail: tOrderDetail): string | null => {
-	const seller = detail.sellers?.find(candidate => String(candidate.id) !== MAIN_SELLER_ID)
+	const sellers = detail.sellers ?? []
+	const seller = sellers.find(candidate => String(candidate.id) !== MAIN_SELLER_ID) ?? sellers[0]
 
 	return seller ? toText(seller.name) : null
 }
@@ -104,7 +102,12 @@ const OLD_ETL_FALLBACK = {
 	/** costprice: preenchido em todas as amostras da produção (em reais); 0 só se a VTEX não mandar. *Assumido.* */
 	costPrice: 0,
 	/** Endpoint de serviços do marketplace: o padrão do OMS com a conta. */
-	marketplaceServicesEndpoint: (account: string) => `http://oms.vtexinternal.com.br/api/oms?an=${account}`
+	marketplaceServicesEndpoint: (account: string) => `http://oms.vtexinternal.com.br/api/oms?an=${account}`,
+	/**
+	 * payment_id de pedido de marketplace (ex.: Panvel, "PVL-"): a VTEX manda o pagamento sem id e o ETL antigo gravou
+	 * "0" (paridade, 24/11/2026). Sem o substituto, o pedido inteiro ficava fora da carga.
+	 */
+	paymentId: '0'
 } as const
 
 /**
@@ -142,7 +145,9 @@ const toDetailRow = (detail: tOrderDetail, context: iDetailContext): tRow => {
 		value: toReais(detail.value),
 		creation_date: required(toUtcDate(detail.creationDate), column('creation_date')),
 		last_change: required(toUtcDate(detail.lastChange), column('last_change')),
-		order_group: detail.orderGroup ?? detail.orderId.replace(ORDER_SUFFIX, ''),
+		// Pedido de marketplace (ex.: PVL-, PGM-) vem sem orderGroup: nulo, como o ETL antigo; o Power BI faz
+		// IFNULL(order_group, order_id).
+		order_group: detail.orderGroup ?? null,
 		totals_items: toReais(totalOf(detail, TOTAL_IDS.items)),
 		totals_discounts: toReais(totalOf(detail, TOTAL_IDS.discounts)),
 		totals_shipping: toReais(totalOf(detail, TOTAL_IDS.shipping)),
@@ -273,7 +278,7 @@ const toPaymentRows = (detail: tOrderDetail): tRow[] =>
 		(transaction.payments ?? []).map(payment => ({
 			order_id: detail.orderId,
 			transaction_id: required(transaction.transactionId, `${detail.orderId} payment transaction_id`),
-			payment_id: payment.id,
+			payment_id: payment.id ?? OLD_ETL_FALLBACK.paymentId,
 			payment_system: toText(payment.paymentSystem),
 			payment_system_name: payment.paymentSystemName,
 			value: toReais(payment.value),

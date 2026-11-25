@@ -58,14 +58,40 @@ const normalize = (value: unknown): string | null => {
 
 	if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)))
 
-	if (typeof value === 'object') return JSON.stringify(value)
+	if (typeof value === 'object') return JSON.stringify(sortKeys(value))
 
 	const text = String(value)
 
 	// "12.50" e "12.5" são o mesmo decimal.
 	if (/^-?\d+(\.\d+)?$/.test(text)) return String(Number(text))
 
-	return text
+	return normalizeJsonText(text) ?? text
+}
+
+/** Mesmo JSON com as chaves em ordem: a coluna JSON do MySQL reordena as chaves ao gravar. */
+const sortKeys = (value: unknown): unknown => {
+	if (Array.isArray(value)) return value.map(sortKeys)
+
+	if (value === null || typeof value !== 'object') return value
+
+	return Object.fromEntries(
+		Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, inner]) => [key, sortKeys(inner)])
+	)
+}
+
+/** Texto que é objeto ou lista JSON → JSON com chaves ordenadas; qualquer outro texto → null. */
+const normalizeJsonText = (text: string): string | null => {
+	const trimmed = text.trim()
+
+	if (!/^[[{]/.test(trimmed)) return null
+
+	try {
+		return JSON.stringify(sortKeys(JSON.parse(trimmed)))
+	} catch {
+		return null
+	}
 }
 
 const keyOf = (row: tRow, keyColumns: string[]) => keyColumns.map(column => normalize(row[column]) ?? '∅').join('|')
@@ -115,16 +141,20 @@ const compareRows = (input: iCompareInput): iCompareResult => {
 
 const REPORTS_DIR = 'reports'
 
-/** Grava o relatório completo em reports/paridade-<job>-<data>.json e devolve o caminho. */
-const writeParityReport = async (job: string, results: iCompareResult[]): Promise<string> => {
+/** Grava o relatório completo ({ meta, results }) em reports/paridade-<job>-<data>.json e devolve o caminho. */
+const writeParityReport = async (
+	job: string,
+	results: iCompareResult[],
+	meta: Record<string, unknown> = {}
+): Promise<string> => {
 	const stamp = new Date().toISOString().replace(/[:.]/g, '-')
 	const file = path.join(REPORTS_DIR, `paridade-${job}-${stamp}.json`)
 
 	await mkdir(REPORTS_DIR, { recursive: true })
-	await writeFile(file, JSON.stringify(results, null, '\t'), 'utf8')
+	await writeFile(file, JSON.stringify({ meta, results }, null, '\t'), 'utf8')
 
 	return file
 }
 
-export { compareRows, normalize, writeParityReport }
+export { compareRows, DEFAULT_IGNORED, normalize, writeParityReport }
 export type { iColumnDiff, iCompareInput, iCompareResult }

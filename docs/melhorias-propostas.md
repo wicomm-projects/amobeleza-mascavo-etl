@@ -7,6 +7,9 @@ transformações de dados do ETL antigo. Isso inclui os pontos em que o desenho 
 relatórios do Power BI continuem iguais. Durante a reconstrução encontramos os pontos abaixo. **Nenhum deles foi
 alterado**: ficam como proposta, separados por prioridade.
 
+A exceção são defeitos de gravação do ETL antigo que o ETL novo não reproduz, porque eram erro de dado e não convenção.
+Eles estão na seção "O que o ETL novo grava diferente do antigo", e a cliente precisa saber deles antes da virada.
+
 Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos estão nas referências do fim.
 
 ## Como ler
@@ -177,6 +180,23 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
   venha do GA4 desde 2023/2024. A tradução foi aceita para manter os relatórios iguais. `sheets_google_drive_navegacao`
   é gravada, mas nenhum relatório a lê.
 - **Proposta:** quando o Web Analytics for refeito, usar os nomes do GA4 e remover a tabela sem leitor (nível 3).
+
+## O que o ETL novo grava diferente do antigo
+
+Medido na comparação com a produção (paridade, 24/11/2026, só leitura). Nas colunas que os relatórios usam, o ETL
+novo grava igual ao antigo. As diferenças abaixo são defeitos do ETL antigo, e o novo grava o que a VTEX manda.
+
+| Ponto                                                                                                                                                                                                                                         | Onde                                                                                | O que muda para a cliente                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pedidos da Mascavo nunca eram atualizados** depois da primeira gravação. Numa amostra de 200 pedidos de agosto, nenhum tinha o status de hoje: gravados como "em preparação", hoje faturados. Na Amobeleza, 199 de 200 estavam atualizados. | `vtex_orders`, `vtex_order_details` (Mascavo)                                       | O ETL novo atualiza o pedido quando ele muda na VTEX (janela de 45 dias). Pedido cancelado depois de aprovado passa a aparecer como cancelado. Na amostra de agosto isso não aconteceu, mas pode mudar números de períodos recentes. O histórico mais antigo continua como o ETL antigo gravou, a menos que se faça uma recarga. |
+| Quantidade de itens do pedido sempre 0 na Mascavo                                                                                                                                                                                             | `vtex_orders.total_items`                                                           | Passa a ter a quantidade real. Nenhum relatório conhecido lê.                                                                                                                                                                                                                                                                    |
+| Descrição, descrição curta, palavras-chave e meta description dos produtos gravadas como "0" na Mascavo                                                                                                                                       | `vtex_products`                                                                     | Passam a ter o texto da VTEX. Nenhum relatório conhecido lê.                                                                                                                                                                                                                                                                     |
+| E-mail do cliente vazio em cerca de metade dos perfis                                                                                                                                                                                         | `vtex_client_profile.email`                                                         | Passa a ter o e-mail que a VTEX manda (um apelido, não o e-mail real). Nenhum relatório conhecido lê.                                                                                                                                                                                                                            |
+| Departamento das categorias raiz com o nome da primeira raiz                                                                                                                                                                                  | `vtex_category_tree.department`                                                     | Ponto 8 acima: a confirmar no Power BI da Amobeleza.                                                                                                                                                                                                                                                                             |
+| Colunas que o ETL antigo não preenchia: previsão de entrega do pedido e transação ativa                                                                                                                                                       | `vtex_orders.shipping_estimated_date*`, `vtex_order_payment_transactions.is_active` | Passam a ter o valor da VTEX. Nenhum relatório conhecido lê.                                                                                                                                                                                                                                                                     |
+
+**Proposta:** apresentar à cliente antes da virada, principalmente o primeiro item. Se ela quiser o histórico da
+Mascavo com o status atualizado, dá para fazer uma recarga dos pedidos antigos (nível 1, sem mudar o Power BI).
 
 ## Referências internas
 
