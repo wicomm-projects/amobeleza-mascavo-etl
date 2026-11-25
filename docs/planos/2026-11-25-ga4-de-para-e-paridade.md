@@ -23,7 +23,7 @@ planilhas) gravava, e provar isso com a paridade, como já foi feito na VTEX e n
 
 - `src/connectors/ga4/de-para.json` foi gerado a partir do histórico, com o canal e o tipo vistos por último para cada
   "origem / mídia".
-- O novo formato é `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com 645 regras para tráfego e 151 para
+- O novo formato é `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com 645 regras para tráfego e 151 para (depois enxugado com a regra por mídia de referral: 212 e 104, ver o resultado)
   vendas.
 - Cada regra é `{ origem, vehicle_channel_no_pay, type }`. A `campanha` continua aceita como opcional, para ajustes
   futuros.

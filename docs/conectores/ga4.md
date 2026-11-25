@@ -122,8 +122,13 @@ planilhas. O Power BI se relaciona por esses textos, então eles precisam ser **
   (`Google Ads` / `Pago`).
 - Cada regra é por **origem / mídia** (ex.: `google / cpc`); a `campanha` é opcional, para ajustes futuros. Regra com
   `campanha` vence regra só com `origem`. Comparação sem diferença de maiúscula e acento.
+- **Regra por mídia** (`{ "midia": "referral", ... }`): vale para qualquer origem com essa mídia sem regra própria. As
+  493 origens de referral do tráfego viraram 1 regra geral (`referral` / `não pago`) e 59 exceções (buscadores, redes
+  sociais, afiliados). Assim site novo de referral não vira pendência, e o arquivo não lista domínios que são
+  endereços internos registrados pelo GA4 (IPs, ambientes de teste da VTEX, sistemas de parceiros). Hoje: 212 regras
+  no tráfego e 104 nas vendas.
 - Formato: `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com `regra = { origem, campanha?,
-vehicle_channel_no_pay, type }`.
+vehicle_channel_no_pay, type }` ou `{ midia, vehicle_channel_no_pay, type }`.
 - Origem / mídia sem regra grava as duas colunas nulas e aparece nas notas do resumo ("De/Para incompleto (tabela)").
 - Para regenerar, ler de novo o histórico, só leitura. O passo a passo fica no `leiame` do JSON.
 - O histórico de GA4 da produção termina em **19/08/2026** (tráfego e vendas) e **20/08/2026** (usuários e itens).
