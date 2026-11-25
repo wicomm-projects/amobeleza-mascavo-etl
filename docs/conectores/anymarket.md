@@ -191,6 +191,12 @@ TikTok Shop, Beleza na Web, Amazon, Itaú, Época, Raia, Renner, Privalia, Vinkl
   método de pagamento, cidade e UF.
 - Corrigido no ETL novo: a chave de metadata é `system_origin` (com sublinhado), não `systemOrigin`; o ETL antigo
   gravava "Amazon Global Api" nos pedidos da Amazon e o novo gravava vazio.
+- **Pagamentos: só o último de cada pedido**, como o ETL antigo (decisão AMO-Q34): a produção tinha 200 pagamentos
+  para 200 pedidos, e nos pedidos com métodos diferentes ficou o último da lista da API. Guardar todos mudaria a forma
+  de pagamento que o Power BI mostra em cerca de 1% dos pedidos.
+- Confirmação com 200 pedidos: 0 divergência nas 6 tabelas fora das aceitas. O ETL antigo do AnyMarket **atualizava** os
+  pedidos (110 já concluídos e 37 cancelados como hoje); 46 mudaram depois que ele parou, então a primeira carga real
+  deve rodar com `--from 2026-10-05` para pegar essas mudanças.
 - Mantido igual ao antigo: a API manda `ShippingTypeToSend` (S maiúsculo) e o ETL antigo nunca preencheu
   `meta_data_shipping_type_to_send` (0 de 100); o novo também grava vazio (ver `docs/melhorias-propostas.md`).
 - Diferenças aceitas: campos que a gravação antiga deixou vazios (`sku_name`, `sku_partner_ean`, `id_in_marketplace`,

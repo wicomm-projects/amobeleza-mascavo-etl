@@ -48,6 +48,7 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
 | 13  | Valores substitutos gravados quando a VTEX não manda o dado         | Banco            | Baixa      | 1                     |
 | 14  | GA4 da Amobeleza com nomes de coluna do Universal Analytics         | Banco e Power BI | Baixa      | 3                     |
 | 15  | Tipo de envio do AnyMarket nunca gravado                            | Banco            | Baixa      | 1                     |
+| 16  | AnyMarket guarda só o último pagamento de cada pedido               | Banco e Power BI | Média      | 1 + Power BI          |
 
 ## Prioridade alta
 
@@ -189,6 +190,16 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
   vazio (0 de 100 pedidos, inclusive os da Amazon, que mandam o campo). O ETL novo grava igual ao antigo.
 - **Proposta:** se algum relatório precisar do tipo de envio, passar a ler a grafia certa (nível 1). Hoje nenhum
   relatório conhecido lê.
+
+### 16. AnyMarket guarda só o último pagamento de cada pedido
+
+- **O que é:** o ETL antigo gravava um pagamento por pedido, o último da lista do AnyMarket. Pedidos do Mercado Livre
+  costumam ter dois ou três (ex.: cartão + saldo da conta), e os outros se perdem. O ETL novo grava igual ao antigo
+  (decisão de 25/11/2026), para os relatórios não mudarem.
+- **Impacto:** a "forma de pagamento" dos pedidos com mais de um método mostra só o último (cerca de 1% numa amostra de
+  200 pedidos), e qualquer soma de valor pago desses pedidos fica menor que o real.
+- **Proposta:** gravar todos os pagamentos (nível 1) e, junto, ajustar os relatórios que leem a tabela para escolher o
+  pagamento principal ou somar os valores (Power BI).
 
 ## O que o ETL novo grava diferente do antigo
 

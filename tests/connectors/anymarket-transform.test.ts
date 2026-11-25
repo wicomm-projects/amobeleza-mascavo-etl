@@ -31,3 +31,23 @@ describe('metadata do pedido AnyMarket (grafia da API, paridade de 25/11/2026)',
 		expect(toOrderRows(order).order.meta_data_shipping_type_to_send).toBeNull()
 	})
 })
+
+describe('pagamentos do pedido AnyMarket (decisão AMO-Q34)', () => {
+	it('grava só o último pagamento, como o ETL antigo', () => {
+		const order = {
+			...firstOrder(),
+			payments: [
+				{ method: 'visa', status: 'APPROVED', value: 100 },
+				{ method: 'master', status: 'APPROVED', value: 50 }
+			]
+		}
+		const { payments } = toOrderRows(order)
+
+		expect(payments).toHaveLength(1)
+		expect(payments[0]).toMatchObject({ method: 'master', value: 50 })
+	})
+
+	it('pedido sem pagamento continua sem linha', () => {
+		expect(toOrderRows({ ...firstOrder(), payments: [] }).payments).toEqual([])
+	})
+})

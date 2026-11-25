@@ -208,8 +208,14 @@ const itemRow = (orderId: number, item: tAnymarketItem): tRow => ({
 	free_shipping: flag(item.freeShipping)
 })
 
+/**
+ * Só o ÚLTIMO pagamento do pedido, como o ETL antigo (decisão AMO-Q34, 25/11/2026). Na paridade, a produção tinha 200
+ * pagamentos para 200 pedidos, e nos pedidos com métodos diferentes ficou o último da lista da API (ex.: [visa, master]
+ * → master). Guardar todos mudaria a forma de pagamento que o Power BI mostra (ele fica com uma linha por pedido) e o
+ * total de quem somar valores: ver docs/melhorias-propostas.md.
+ */
 const paymentRows = (order: tAnymarketOrder): tRow[] =>
-	order.payments.map(payment => ({
+	order.payments.slice(-1).map(payment => ({
 		[ORDER_KEY_COLUMN]: order.id,
 		method: text(payment.method),
 		status: text(payment.status),
