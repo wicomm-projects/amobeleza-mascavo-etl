@@ -151,9 +151,11 @@ const NO_CHANNEL: iChannelClassifier = {
 type tReadContext = Pick<iJobContext, 'options' | 'logger'>
 
 /** Lê e prepara os relatórios da marca. A carga e a paridade usam este mesmo caminho. */
+/** `definitions`: padrão, todas as da marca; a paridade passa uma lista própria (ex.: a por_hora numa janela fixa). */
 const readReports = async (
 	brand: tBrand,
-	{ options, logger }: tReadContext
+	{ options, logger }: tReadContext,
+	definitions: readonly iReportDefinition[] = reportsOf(brand)
 ): Promise<{ prepared: iPreparedTable[]; notes: string[] }> => {
 	const fixture = options.fixture ? await loadBrandFixture(brand, options.fixture) : undefined
 	const fallback = fixture?.dateRange
@@ -170,7 +172,7 @@ const readReports = async (
 	const notes: string[] = []
 
 	try {
-		for (const definition of reportsOf(brand)) {
+		for (const definition of definitions) {
 			const tableWindow = windowOf(definition, window, today)
 			const report = await reader.runReport(definition.table, {
 				...requestOf(definition),

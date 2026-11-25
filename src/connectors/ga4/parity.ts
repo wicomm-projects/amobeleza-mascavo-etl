@@ -12,7 +12,7 @@ import {
 } from '../../core/parity/helpers.js'
 
 import { type iPreparedTable, readReports } from './job.js'
-import type { tGa4Table } from './reports.js'
+import type { iReportDefinition, tGa4Table } from './reports.js'
 import { ISO_DAY, addDays } from './window.js'
 
 /**
@@ -47,7 +47,8 @@ const IGNORED_COLUMNS = ['id', 'created_at', 'updated_at']
 type tReadReports = (
 	brand: tBrand,
 	from: string,
-	to: string
+	to: string,
+	definitions?: readonly iReportDefinition[]
 ) => Promise<{ prepared: iPreparedTable[]; notes: string[] }>
 
 interface iParityDeps {
@@ -60,8 +61,10 @@ interface iDay {
 	to: string
 }
 
+type tTableSpecs = Readonly<Partial<Record<tGa4Table, { keyColumns: string[]; metrics: string[] }>>>
+
 /** Chave de comparação e colunas numéricas (para os totais) de cada tabela da Mascavo. */
-const TABLE_SPECS: Readonly<Partial<Record<tGa4Table, { keyColumns: string[]; metrics: string[] }>>> = {
+const MASCAVO_SPECS: tTableSpecs = {
 	sheets_google_drive_trafego: {
 		keyColumns: ['date', 'session_source', 'session_campaign_name', 'platform_device_category'],
 		metrics: ['event_count']
@@ -83,6 +86,31 @@ const TABLE_SPECS: Readonly<Partial<Record<tGa4Table, { keyColumns: string[]; me
 		metrics: []
 	}
 }
+
+/**
+ * Amobeleza (tabelas sem chave na produção). A `por_hora` guarda só os últimos dias que o pipeline antigo gravou: a
+ * paridade lê o GA4 nas datas que a produção tem (ver `ga4Parity`).
+ */
+const AMOBELEZA_SPECS: tTableSpecs = {
+	sheets_google_drive_trafego: {
+		keyColumns: ['date', 'source_medium', 'campaign', 'device_category', 'mobile_device_brand'],
+		metrics: ['sessions', 'bounces', 'new_users', 'pageviews', 'transaction_revenue', 'transactions']
+	},
+	sheets_google_drive_transacoes: {
+		keyColumns: ['date', 'transaction_id'],
+		metrics: ['transactions', 'transaction_revenue']
+	},
+	sheets_google_drive_navegacao: {
+		keyColumns: ['date', 'device_category', 'mobile_device_brand'],
+		metrics: ['sessions']
+	},
+	sheets_google_drive_por_hora: {
+		keyColumns: ['date', 'hour'],
+		metrics: ['transaction_revenue', 'transactions', 'sessions']
+	}
+}
+
+const SPECS_BY_BRAND: Readonly<Record<tBrand, tTableSpecs>> = { mascavo: MASCAVO_SPECS, amobeleza: AMOBELEZA_SPECS }
 
 /** Diferenças conhecidas com o pipeline antigo: preencher depois da paridade real. */
 const ACCEPTED_DIFFERENCES: tAcceptedDifferences = {}
@@ -123,22 +151,31 @@ const resolveDays = async (ctx: iParityContext): Promise<iDay> => {
 /** Padrão: o mesmo caminho da carga, só leitura (dryRun), com a janela do dia inteiro em UTC como o CLI monta. */
 const defaultRead =
 	(ctx: iParityContext): tReadReports =>
-	(brand, from, to) =>
-		readReports(brand, {
-			logger: ctx.logger,
-			options: {
-				dryRun: true,
-				from: new Date(`${from}T00:00:00.000Z`),
-				to: new Date(`${to}T23:59:59.999Z`)
-			}
-		})
+	(brand, from, to, definitions) =>
+		readReports(
+			brand,
+			{
+				logger: ctx.logger,
+				options: {
+					dryRun: true,
+					from: new Date(`${from}T00:00:00.000Z`),
+					to: new Date(`${to}T23:59:59.999Z`)
+				}
+			},
+			definitions
+		)
 
-/** Linhas da produção: tabelas por janela, na coluna de data; as de `since` (category), a tabela inteira. */
-const readProduction = async (ctx: iParityContext, table: iPreparedTable, day: iDay): Promise<tRow[]> => {
+/** Linhas da produção: tabelas por janela, na coluna de data; as outras (category, por_hora), a tabela inteira. */
+const readProduction = async (
+	ctx: iParityContext,
+	table: iPreparedTable,
+	day: iDay,
+	wholeTable = false
+): Promise<tRow[]> => {
 	const { definition } = table
 	const target = qualified(ctx.database, definition.table)
 
-	if (definition.scope.kind !== 'window') {
+	if (wholeTable || definition.scope.kind !== 'window') {
 		return ctx.refReader.query<tRow>(`SELECT * FROM ${target} LIMIT ${MAX_ROWS_FULL_TABLE}`)
 	}
 
@@ -187,27 +224,50 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 	const writeReport = deps.writeReport ?? writeParityReport
 	const day = await resolveDays(ctx)
 
-	if (brand === 'amobeleza') {
-		const note =
-			'Amobeleza fora da paridade do GA4 por enquanto: sem permissão na propriedade e sem chave de junção.'
-		const reportPath = await writeReport(`${JOB_NAME}-${brand}`, [], { brand, window: day, notes: [note] })
+	const specs = SPECS_BY_BRAND[brand]
+	const read = deps.read ?? defaultRead(ctx)
+	const { prepared: windowTables, notes: readNotes } = await read(brand, day.from, day.to)
+	const lastDaysTables = windowTables.filter(table => table.definition.scope.kind === 'lastDays')
+	const prepared = windowTables.filter(table => table.definition.scope.kind !== 'lastDays')
+	const fixedWindowNotes: string[] = []
+	const fixedWindowTables = new Set<string>()
 
-		return { reportPath, tables: [], notes: [note] }
+	// Tabelas "últimos N dias" (por_hora): a produção guarda os últimos dias que o pipeline antigo gravou. Lê o GA4
+	// nessas mesmas datas, com a mesma definição em janela fixa.
+	for (const table of lastDaysTables) {
+		const production = await readProduction(ctx, table, day)
+		const dates = production
+			.map(row => normalize(row.date)?.slice(0, ISO_DAY_LENGTH) ?? '')
+			.filter(Boolean)
+			.sort()
+		const [first] = dates
+		const last = dates.at(-1)
+
+		if (!first || !last) {
+			fixedWindowNotes.push(`${table.definition.table}: produção vazia, fora da comparação`)
+			continue
+		}
+
+		const definition = { ...table.definition, scope: { kind: 'window', dateColumn: 'date' } as const }
+		const reread = await read(brand, first, last, [definition])
+
+		prepared.push(...reread.prepared)
+		fixedWindowTables.add(table.definition.table)
+		fixedWindowNotes.push(`${table.definition.table}: comparada nas datas da produção, ${first} a ${last}`)
 	}
 
-	const read = deps.read ?? defaultRead(ctx)
-	const { prepared, notes: readNotes } = await read(brand, day.from, day.to)
 	const results: iCompareResult[] = []
 	const rowsByTable: Record<string, { production: number; novo: number }> = {}
 	const totalsByTable: Record<string, iTotal[]> = {}
 
 	for (const table of prepared) {
 		const name = table.definition.table
-		const spec = TABLE_SPECS[name]
+		const spec = specs[name]
 
 		if (!spec) throw new AppError(`Paridade do ga4: sem chave de comparação para ${name}.`)
 
-		const production = await readProduction(ctx, table, day)
+		// A por_hora relida em janela fixa compara com a tabela inteira da produção (são os mesmos dias).
+		const production = await readProduction(ctx, table, day, fixedWindowTables.has(name))
 
 		results.push(
 			compareRows({
@@ -234,6 +294,7 @@ const ga4Parity = async (ctx: iParityContext, deps: iParityDeps = {}): Promise<i
 	const reportPath = await writeReport(`${JOB_NAME}-${brand}`, results, meta)
 	const notes = [
 		`Janela: ${day.from} a ${day.to}`,
+		...fixedWindowNotes,
 		...Object.entries(totalsByTable).flatMap(([name, totals]) => totals.map(total => totalNote(name, total))),
 		...extraNotes(results),
 		...acceptedNotes(results, ACCEPTED_DIFFERENCES),
