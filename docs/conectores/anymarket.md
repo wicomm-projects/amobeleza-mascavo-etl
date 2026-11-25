@@ -170,6 +170,40 @@ aceito: a autenticação vem antes da validação dos filtros.
 - Confirmar: `platform`, formato de data aceito nos filtros, se o `next` preserva os filtros, as chaves de `metadata`, o
   formato de kit e o limite de requisições da conta.
 
+## Paridade com a produção
+
+```bash
+npm run etl -- parity anymarket-orders --sample 200   # janela padrão: 2 dias criados, 30 dias antes da parada
+```
+
+Lista na API (só GET) os pedidos criados numa janela antiga, transforma em memória com `toOrderRows` e compara com as 6
+tabelas `anymarket_*` da produção (SELECT por chave, com LIMIT, usuário só leitura). Nada é gravado. O relatório vai para
+`reports/` (fora do Git); comprador e endereço saem como `[mascarado]`. Plano: `docs/planos/2026-11-25-paridade-anymarket.md`.
+
+- Pedido com colunas de andamento diferentes (status, nota fiscal) entra no grupo "(mudou depois)", sem essas colunas.
+- `ACCEPTED_DIFFERENCES` (`parity.ts`): diferenças conhecidas, com o motivo; continuam no relatório.
+- A nota "Status na produção → hoje" mostra se o ETL antigo atualizava o pedido.
+
+**Resultado de 25/11/2026** (100 pedidos criados de 07 a 09/09/2026, de 7 contas e 10 marketplaces: Mercado Livre,
+TikTok Shop, Beleza na Web, Amazon, Itaú, Época, Raia, Renner, Privalia, Vinklo):
+
+- O que o Power BI da Mascavo lê bateu: valor bruto, desconto, frete, data de criação, status, SKU, quantidade, total,
+  método de pagamento, cidade e UF.
+- Corrigido no ETL novo: a chave de metadata é `system_origin` (com sublinhado), não `systemOrigin`; o ETL antigo
+  gravava "Amazon Global Api" nos pedidos da Amazon e o novo gravava vazio.
+- **Pagamentos: só o último de cada pedido**, como o ETL antigo (decisão AMO-Q34): a produção tinha 200 pagamentos
+  para 200 pedidos, e nos pedidos com métodos diferentes ficou o último da lista da API. Guardar todos mudaria a forma
+  de pagamento que o Power BI mostra em cerca de 1% dos pedidos.
+- Confirmação com 200 pedidos: 0 divergência nas 6 tabelas fora das aceitas. O ETL antigo do AnyMarket **atualizava** os
+  pedidos (110 já concluídos e 37 cancelados como hoje); 46 mudaram depois que ele parou, então a primeira carga real
+  deve rodar com `--from 2026-10-05` para pegar essas mudanças.
+- Mantido igual ao antigo: a API manda `ShippingTypeToSend` (S maiúsculo) e o ETL antigo nunca preencheu
+  `meta_data_shipping_type_to_send` (0 de 100); o novo também grava vazio (ver `docs/melhorias-propostas.md`).
+- Diferenças aceitas: campos que a gravação antiga deixou vazios (`sku_name`, `sku_partner_ean`, `id_in_marketplace`,
+  `marketplace_id`, `market_place_id`, `country_normalized`, `meta_data_need_invoice_xml`), textos editados depois
+  (nome de produto e de kit), código de rastreio trocado e `promised_shipping_time` do Mercado Livre (a API manda hoje
+  meia-noite UTC; a produção tem 03:00).
+
 ## Pendências e dúvidas
 
 1. **DDL provisória.** Escrita do dicionário da WPP ("Documentação Amobeleza", seção 2.5, p. 30–34). Tipos, `NOT NULL`

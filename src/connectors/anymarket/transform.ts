@@ -117,10 +117,17 @@ const metadataText = (value: unknown): string | null => {
  * Chaves de `metadata` que viram colunas meta_data_*. Só `needInvoiceXML` aparece na especificação pública; as outras três
  * são o nome da coluna em camelCase — assumidas, a confirmar com o token e a paridade.
  */
+/**
+ * Chaves em `metadata` do pedido, com a grafia que a API manda (paridade real, 25/11/2026):
+ * - `system_origin` (com sublinhado): o ETL antigo gravava, ex.: "Amazon Global Api" nos pedidos da Amazon;
+ * - `shippingTypeToSend`: a API manda `ShippingTypeToSend` (S maiúsculo) e o ETL antigo lia esta grafia, então a coluna
+ *   ficou sempre vazia (0 de 100 pedidos). Mantido igual ao antigo: nenhum relatório conhecido lê; ver
+ *   docs/melhorias-propostas.md.
+ */
 const METADATA_KEYS = {
 	needInvoiceXml: 'needInvoiceXML',
 	fiscalDocumentFileType: 'fiscalDocumentFileType',
-	systemOrigin: 'systemOrigin',
+	systemOrigin: 'system_origin',
 	shippingTypeToSend: 'shippingTypeToSend'
 } as const
 
@@ -201,8 +208,14 @@ const itemRow = (orderId: number, item: tAnymarketItem): tRow => ({
 	free_shipping: flag(item.freeShipping)
 })
 
+/**
+ * Só o ÚLTIMO pagamento do pedido, como o ETL antigo (decisão AMO-Q34, 25/11/2026). Na paridade, a produção tinha 200
+ * pagamentos para 200 pedidos, e nos pedidos com métodos diferentes ficou o último da lista da API (ex.: [visa, master]
+ * → master). Guardar todos mudaria a forma de pagamento que o Power BI mostra (ele fica com uma linha por pedido) e o
+ * total de quem somar valores: ver docs/melhorias-propostas.md.
+ */
 const paymentRows = (order: tAnymarketOrder): tRow[] =>
-	order.payments.map(payment => ({
+	order.payments.slice(-1).map(payment => ({
 		[ORDER_KEY_COLUMN]: order.id,
 		method: text(payment.method),
 		status: text(payment.status),
