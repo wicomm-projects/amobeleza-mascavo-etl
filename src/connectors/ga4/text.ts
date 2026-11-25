@@ -48,4 +48,7 @@ const fitVarchar = (value: string, max: number = VARCHAR_MAX): { value: string; 
 	return { value: characters.slice(0, max).join(''), truncated: true }
 }
 
-export { VARCHAR_MAX, collationKey, fitVarchar }
+/** Minúsculas, como a tabela de tráfego guarda origem e campanha na produção. */
+const lowerText = (value: string): string => value.toLowerCase()
+
+export { VARCHAR_MAX, collationKey, fitVarchar, lowerText }

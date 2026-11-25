@@ -7,17 +7,18 @@ Agora o ETL chama direto a API de dados do GA4 (`runReport`) e grava **nas mesma
 Código: `src/connectors/ga4/`. Uma definição de relatório por tabela em `reports.ts`; o resto é infraestrutura
 (cliente, validação, janela, De/Para, transformação).
 
-| Arquivo           | O que faz                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| `index.ts`        | Fonte `ga4` (por marca) e o `check-access`                                                  |
-| `job.ts`          | Job `ga4`: lê todos os relatórios da marca e grava numa transação só                        |
-| `reports.ts`      | **Mapa GA4 → colunas**, tabela por tabela, das duas marcas                                  |
-| `api.ts`          | Cliente da API (conta de serviço, paginação, timeout) ou a fixture no lugar dela            |
-| `schemas.ts`      | zod na borda: resposta do `runReport`, metadata, `checkCompatibility`, fixture              |
-| `transform.ts`    | Conversão de tipo de cada valor e junção de linhas que colidiriam na chave do MySQL         |
-| `de-para.json`    | De/Para de canal (`vehicle_channel_no_pay` / `type`) da Mascavo — **vazio até o histórico** |
-| `window.ts`       | Janela de datas (dia de São Paulo)                                                          |
-| `fixtures/*.json` | Respostas de exemplo (formato REST da API, valores inventados) para testar sem chave        |
+| Arquivo           | O que faz                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `index.ts`        | Fonte `ga4` (por marca) e o `check-access`                                            |
+| `job.ts`          | Job `ga4`: lê todos os relatórios da marca e grava numa transação só                  |
+| `reports.ts`      | **Mapa GA4 → colunas**, tabela por tabela, das duas marcas                            |
+| `api.ts`          | Cliente da API (conta de serviço, paginação, timeout) ou a fixture no lugar dela      |
+| `schemas.ts`      | zod na borda: resposta do `runReport`, metadata, `checkCompatibility`, fixture        |
+| `transform.ts`    | Conversão de tipo de cada valor e junção de linhas que colidiriam na chave do MySQL   |
+| `de-para.json`    | De/Para de canal (`vehicle_channel_no_pay` / `type`) da Mascavo, uma lista por tabela |
+| `parity.ts`       | Paridade com o histórico da produção (só leitura): `parity ga4 --brand mascavo`       |
+| `window.ts`       | Janela de datas (dia de São Paulo)                                                    |
+| `fixtures/*.json` | Respostas de exemplo (formato REST da API, valores inventados) para testar sem chave  |
 
 ## Configurar
 
@@ -94,13 +95,13 @@ Nomes conferidos na doc do schema da API v1beta em 18/11/2026. O `conversions` d
 
 ### Mascavo (`mascavo_etl`, o que o B2C lê)
 
-| Tabela      | Dimensões GA4 → coluna                                                                                                                              | Métricas GA4 → coluna                                                   | Observação                                                                                             |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `_trafego`  | `date`→`date`, `sessionSource`→`session_source`, `sessionCampaignName`→`session_campaign_name`, `platformDeviceCategory`→`platform_device_category` | `eventCount`→`event_count`                                              | Filtro `eventName = session_start` (_assumido_); `ga4_property_id` (int) da config; canal pelo De/Para |
-| `_vendas`   | `date`, `source`→`source`, `campaignName`→`event_campaign_name`, `platformDeviceCategory`                                                           | `purchaseRevenue`→`purchase_revenue`, `keyEvents`→`conversions`         | `ga4_property_id` em texto; canal pelo De/Para; `investment` nulo (_a combinar_)                       |
-| `_users`    | `date`→`Date`, `sessionSource`→`Session_source`                                                                                                     | `firstTimePurchasers`→`First_time_purchasers`, `newUsers`→`New_users`   | Soma linhas que colidem na PK                                                                          |
-| `_items`    | `date`→`Date`, `sessionSource`→`Session_source`, `itemName`→`Item_name`                                                                             | `itemRevenue`→`Item_revenue`, `itemsPurchased`→`Item_purchase_quantity` | Soma linhas que colidem na PK                                                                          |
-| `_category` | `itemCategory`→`Item_category`, `itemCategory2`→`Item_category_2`, `itemName`→`Item_name`                                                           | `itemsPurchased` (só ordena)                                            | Desde 2019-01-01, `keepEmptyRows`; item com 2 categorias fica com a de mais unidades                   |
+| Tabela      | Dimensões GA4 → coluna                                                                                                                                    | Métricas GA4 → coluna                                                    | Observação                                                                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `_trafego`  | `date`→`date`, `sessionSourceMedium`→`session_source`, `sessionCampaignName`→`session_campaign_name`, `platformDeviceCategory`→`platform_device_category` | `eventCount`→`event_count`                                               | Filtro `eventName = session_start` (_assumido_); origem e campanha **em minúsculas** (como a produção); `ga4_property_id` (int) da config; canal pelo De/Para de tráfego |
+| `_vendas`   | `date`, `sourceMedium`→`source`, `campaignName`→`event_campaign_name`, `platformDeviceCategory`                                                           | `purchaseRevenue`→`purchase_revenue`, `keyEvents:purchase`→`conversions` | `ga4_property_id` em texto; maiúsculas como o GA4 manda; canal pelo De/Para de vendas; `investment` = `"0"` (como o antigo)                                              |
+| `_users`    | `date`→`Date`, `sessionSourceMedium`→`Session_source`                                                                                                     | `firstTimePurchasers`→`First_time_purchasers`, `newUsers`→`New_users`    | Soma linhas que colidem na PK; receita com 2 casas                                                                                                                       |
+| `_items`    | `date`→`Date`, `sessionSourceMedium`→`Session_source`, `itemName`→`Item_name`                                                                             | `itemRevenue`→`Item_revenue`, `itemsPurchased`→`Item_purchase_quantity`  | Soma linhas que colidem na PK                                                                                                                                            |
+| `_category` | `itemCategory`→`Item_category`, `itemCategory2`→`Item_category_2`, `itemName`→`Item_name`                                                                 | `itemsPurchased` (só ordena)                                             | Desde 2019-01-01, `keepEmptyRows`; uma linha por (categoria, categoria 2, item), diferenciando maiúscula/acento, como o índice da produção                               |
 
 ### Amobeleza (`amobeleza_etl`, tabelas `h_*` do Web Analytics) — colunas da era Universal Analytics
 
@@ -113,35 +114,48 @@ Nomes conferidos na doc do schema da API v1beta em 18/11/2026. O `conversions` d
 
 ## De/Para de canal (Mascavo)
 
-`vehicle_channel_no_pay` (ex.: "google ads", "crm", "direto", "pesquisa orgânica") e `type` (pago / não pago) eram
-colunas calculadas nas planilhas. O Power BI se relaciona por esses textos, então eles precisam ser **idênticos** ao
-histórico. Formato de `de-para.json`:
+`vehicle_channel_no_pay` (ex.: "google ads", "crm", "direto") e `type` (pago / não pago) eram colunas calculadas nas
+planilhas. O Power BI se relaciona por esses textos, então eles precisam ser **idênticos** ao histórico.
 
-```json
-{
-	"regras": [
-		{
-			"origem": "google",
-			"campanha": "(organic)",
-			"vehicle_channel_no_pay": "pesquisa orgânica",
-			"type": "não pago"
-		},
-		{ "origem": "newsletter", "vehicle_channel_no_pay": "crm", "type": "não pago" }
-	]
-}
-```
+- As regras saem do histórico da produção (só leitura): `de-para.json` tem **uma lista por tabela**, `trafego` e
+  `vendas`, com os textos exatos de cada uma. No tráfego tudo é em minúsculas (`google ads` / `pago`); nas vendas, não
+  (`Google Ads` / `Pago`).
+- Cada regra é por **origem / mídia** (ex.: `google / cpc`); a `campanha` é opcional, para ajustes futuros. Regra com
+  `campanha` vence regra só com `origem`. Comparação sem diferença de maiúscula e acento.
+- **Regra por mídia** (`{ "midia": "referral", ... }`): vale para qualquer origem com essa mídia sem regra própria. As
+  493 origens de referral do tráfego viraram 1 regra geral (`referral` / `não pago`) e 59 exceções (buscadores, redes
+  sociais, afiliados). Assim site novo de referral não vira pendência, e o arquivo não lista domínios que são
+  endereços internos registrados pelo GA4 (IPs, ambientes de teste da VTEX, sistemas de parceiros). Hoje: 212 regras
+  no tráfego e 104 nas vendas.
+- Formato: `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com `regra = { origem, campanha?,
+vehicle_channel_no_pay, type }` ou `{ midia, vehicle_channel_no_pay, type }`.
+- Origem / mídia sem regra grava as duas colunas nulas e aparece nas notas do resumo ("De/Para incompleto (tabela)").
+- Para regenerar, ler de novo o histórico, só leitura. O passo a passo fica no `leiame` do JSON.
+- O histórico de GA4 da produção termina em **19/08/2026** (tráfego e vendas) e **20/08/2026** (usuários e itens).
 
-- Regra com `campanha` vence regra só com `origem`. Comparação sem diferença de maiúscula/acento.
-- Sem regra: as duas colunas ficam nulas e a combinação entra no aviso "De/Para vazio/incompleto" do resumo.
-- Como montar (quando o usuário só leitura chegar), uma consulta por tabela, com data e LIMIT:
+## Paridade
 
-    ```sql
-    SELECT DISTINCT session_source, session_campaign_name, vehicle_channel_no_pay, type
-    FROM sheets_google_drive_trafego WHERE date >= '2026-02-01' LIMIT 5000
-    ```
+`npm run etl -- parity ga4 --brand mascavo` roda o mesmo caminho da carga (`readReports`) numa janela antiga e compara
+com a produção, tabela por tabela (só SELECT com LIMIT). Sem `--from`/`--to`, usa 7 dias que terminam 7 dias antes do
+último dia de `sheets_google_drive_trafego`. O relatório e as notas trazem, por tabela, o total de cada coluna numérica
+nos dois lados e a diferença em %: o GA4 pode diferir um pouco do Supermetrics, e o total mostra se é ruído ou erro de
+regra. A Amobeleza fica fora por enquanto (propriedade sem permissão, sem chave de junção definida).
 
-    e o mesmo em `sheets_google_drive_vendas` (`source`, `event_campaign_name`). Se uma origem tiver sempre o mesmo
-    canal, basta a regra só com `origem`.
+**Resultado de 25/11/2026** (06 a 12/08/2026, Mascavo):
+
+| Tabela     | Total produção → novo                                               | Leitura                                                                        |
+| ---------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `trafego`  | `event_count` 230.439 → 229.024 (−0,6%)                             | bate: "Sessões" é a contagem de `session_start`                                |
+| `items`    | receita 911.508 → 911.200 (−0,03%); quantidade 13.275 → 13.297      | bate                                                                           |
+| `vendas`   | receita 862.599 → 911.110 (+5,6%); conversões 3.111 → 3.309 (+6,4%) | o novo bate com a receita de itens (antiga e nova); o antigo ficava ~5% abaixo |
+| `users`    | novos usuários −3,3%; primeiros compradores −5,5%                   | métrica de usuário do GA4 (modelada); _a confirmar_                            |
+| `category` | 20 de 1.039 combinações divergentes                                 | categorias editadas depois                                                     |
+
+- Corrigido pela paridade: `conversions` = `keyEvents:purchase` (o total de `keyEvents` dava ~99x e criava linhas sem
+  venda); `investment` = "0"; receita de item com 2 casas; categorias com todas as combinações.
+- Diferença linha a linha esperada: o pipeline antigo leu cada dia logo depois, antes de o GA4 terminar a atribuição
+  (muito `(data not available)` e origem vazia); lendo meses depois, a atribuição já está feita. Por isso o critério do
+  GA4 é o total por tabela, não linha a linha. `ACCEPTED_DIFFERENCES` fica vazio.
 
 ## DDL provisória
 
@@ -169,20 +183,17 @@ acima: `bounces` = sessões não engajadas, `pageviews` = `screenPageViews`, `so
 
 **Assumidas, a confirmar na paridade:**
 
-- `trafego.event_count` (Mascavo) = contagem de `session_start` (o Power BI chama de "Sessões"). Se era o total de
-  eventos, tirar o filtro em `reports.ts`.
-- `vendas.conversions` = `keyEvents` (todos os eventos-chave). Se era só compra, trocar por `transactions`.
-- `vendas.investment` nulo: era texto calculado na planilha; regra desconhecida.
-- `vendas` usa as dimensões atribuídas ao evento-chave (`source`, `campaignName`); `trafego`, as da sessão.
+- ~~`trafego.event_count` = contagem de `session_start`~~ — confirmado na paridade (−0,6% no total).
+- ~~`vendas.conversions` e `investment`~~ — medidos na paridade: `keyEvents:purchase` e "0".
+- `vendas` usa as dimensões atribuídas ao evento-chave (`sourceMedium`, `campaignName`); `trafego`, as da sessão.
 - `por_hora` (Amobeleza) com só os últimos 4 dias: a tabela tinha 96 linhas (4 × 24 h) na produção.
-- `category` desde 2019 com o item dominante: a planilha antiga tinha 1.073 itens; conferir a contagem.
+- ~~`category` com o item dominante~~ — a produção guarda todas as combinações; corrigido.
 - Datas no fuso da propriedade (o resumo do `run` avisa se não for São Paulo).
 
 **Dependem de chave ou acesso:**
 
 - IDs das propriedades (Mascavo provável 460424464, Amobeleza provável 311781135) e papel Leitor da conta de serviço.
 - `checkCompatibility` real (combinações de escopo item × sessão em `items`; `transactionId` com dimensões de sessão).
-- De/Para: `SELECT DISTINCT` na produção (só leitura).
 - Cota: propriedade padrão tem 200.000 tokens/dia e 40.000/hora; 9 relatórios a cada 3 h ficam bem abaixo, mas a carga
   retroativa deve ser feita em janelas de ~1 mês.
 

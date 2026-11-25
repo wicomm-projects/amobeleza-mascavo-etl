@@ -4,7 +4,7 @@ import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunSummary } from '../../core/jobs/types.js'
 
 import { createFixtureReader, createLiveReader, type iGa4Reader, type iReportRequest, loadFixture } from './api.js'
-import { createChannelClassifier } from './de-para.js'
+import { createChannelClassifier, type iChannelClassifier, type tChannelTable } from './de-para.js'
 import { type iReportDefinition, reportsOf } from './reports.js'
 import type { iReportData, tFixture } from './schemas.js'
 import { collapseRows, toRows } from './transform.js'
@@ -105,7 +105,7 @@ const reportNotes = ({ definition, report, window, rows, truncated, merged }: iT
 	return notes
 }
 
-const channelNotes = (unmapped: string[], ruleCount: number): string[] => {
+const channelNotes = (table: tChannelTable, unmapped: string[], ruleCount: number): string[] => {
 	if (unmapped.length === 0) return []
 
 	const shown = unmapped.slice(0, UNMAPPED_IN_NOTES).join('; ')
@@ -113,7 +113,7 @@ const channelNotes = (unmapped: string[], ruleCount: number): string[] => {
 	const prefix = ruleCount === 0 ? 'De/Para vazio' : 'De/Para incompleto'
 
 	return [
-		`${prefix}: ${unmapped.length} origem/campanha sem regra (vehicle_channel_no_pay e type nulos): ${shown}${extra}`
+		`${prefix} (${table}): ${unmapped.length} origem/campanha sem regra (vehicle_channel_no_pay e type nulos): ${shown}${extra}`
 	]
 }
 
@@ -140,9 +140,20 @@ const openReader = async (brand: tBrand, fixture?: tFixture): Promise<iGa4Reader
 	return createLiveReader(ga4.propertyId)
 }
 
+/** Classificador das tabelas sem De/Para: devolve sempre nulo e não conta como pendência. */
+const NO_CHANNEL: iChannelClassifier = {
+	classify: () => ({ vehicle_channel_no_pay: null, type: null }),
+	unmapped: () => [],
+	ruleCount: 0
+}
+
+/** O que a leitura dos relatórios precisa do contexto (a paridade monta isto sem writer). */
+type tReadContext = Pick<iJobContext, 'options' | 'logger'>
+
+/** Lê e prepara os relatórios da marca. A carga e a paridade usam este mesmo caminho. */
 const readReports = async (
 	brand: tBrand,
-	{ options, logger }: iJobContext
+	{ options, logger }: tReadContext
 ): Promise<{ prepared: iPreparedTable[]; notes: string[] }> => {
 	const fixture = options.fixture ? await loadBrandFixture(brand, options.fixture) : undefined
 	const fallback = fixture?.dateRange
@@ -150,7 +161,10 @@ const readReports = async (
 		: undefined
 	const window = resolveWindow({ from: options.from, to: options.to, fallback, days: WINDOW_DAYS })
 	const today = dayInTimeZone(new Date())
-	const channel = createChannelClassifier()
+	const channels: Readonly<Record<tChannelTable, iChannelClassifier>> = {
+		trafego: createChannelClassifier('trafego'),
+		vendas: createChannelClassifier('vendas')
+	}
 	const reader = await openReader(brand, fixture)
 	const prepared: iPreparedTable[] = []
 	const notes: string[] = []
@@ -168,7 +182,10 @@ const readReports = async (
 				definition.table,
 				report,
 				definition.toRow,
-				{ propertyId: reader.propertyId, channel },
+				{
+					propertyId: reader.propertyId,
+					channel: definition.channelRules ? channels[definition.channelRules] : NO_CHANNEL
+				},
 				stats
 			)
 			const collapsed = definition.collapse ? collapseRows(rows, definition.collapse) : { rows, merged: 0 }
@@ -194,7 +211,11 @@ const readReports = async (
 		await reader.close().catch((err: unknown) => logger.warn({ err }, 'GA4: falha ao fechar o cliente'))
 	}
 
-	return { prepared, notes: [...notes, ...channelNotes(channel.unmapped(), channel.ruleCount)] }
+	const pending = (Object.keys(channels) as tChannelTable[]).flatMap(table =>
+		channelNotes(table, channels[table].unmapped(), channels[table].ruleCount)
+	)
+
+	return { prepared, notes: [...notes, ...pending] }
 }
 
 const runGa4 = async (ctx: iJobContext): Promise<iRunSummary> => {
@@ -243,4 +264,5 @@ const ga4Job: iJob = {
 	run: runGa4
 }
 
-export { GA4_SCHEDULE, WINDOW_DAYS, ga4Job, requestOf }
+export { GA4_SCHEDULE, WINDOW_DAYS, ga4Job, readReports, requestOf }
+export type { iPreparedTable }

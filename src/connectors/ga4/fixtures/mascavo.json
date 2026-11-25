@@ -6,7 +6,7 @@
 		"sheets_google_drive_trafego": {
 			"dimensionHeaders": [
 				{ "name": "date" },
-				{ "name": "sessionSource" },
+				{ "name": "sessionSourceMedium" },
 				{ "name": "sessionCampaignName" },
 				{ "name": "platformDeviceCategory" }
 			],
@@ -15,7 +15,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261116" },
-						{ "value": "google" },
+						{ "value": "google / organic" },
 						{ "value": "(organic)" },
 						{ "value": "web / mobile" }
 					],
@@ -24,7 +24,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261116" },
-						{ "value": "(direct)" },
+						{ "value": "(direct) / (none)" },
 						{ "value": "(direct)" },
 						{ "value": "web / desktop" }
 					],
@@ -33,7 +33,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261117" },
-						{ "value": "google" },
+						{ "value": "google / cpc" },
 						{ "value": "campanha_exemplo" },
 						{ "value": "web / mobile" }
 					],
@@ -42,7 +42,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261118" },
-						{ "value": "newsletter" },
+						{ "value": "newsletter / email" },
 						{ "value": "novidades_exemplo" },
 						{ "value": "web / mobile" }
 					],
@@ -56,19 +56,19 @@
 		"sheets_google_drive_vendas": {
 			"dimensionHeaders": [
 				{ "name": "date" },
-				{ "name": "source" },
+				{ "name": "sourceMedium" },
 				{ "name": "campaignName" },
 				{ "name": "platformDeviceCategory" }
 			],
 			"metricHeaders": [
 				{ "name": "purchaseRevenue", "type": "TYPE_CURRENCY" },
-				{ "name": "keyEvents", "type": "TYPE_FLOAT" }
+				{ "name": "keyEvents:purchase", "type": "TYPE_FLOAT" }
 			],
 			"rows": [
 				{
 					"dimensionValues": [
 						{ "value": "20261116" },
-						{ "value": "google" },
+						{ "value": "google / cpc" },
 						{ "value": "campanha_exemplo" },
 						{ "value": "web / mobile" }
 					],
@@ -77,7 +77,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261117" },
-						{ "value": "(direct)" },
+						{ "value": "(direct) / (none)" },
 						{ "value": "(direct)" },
 						{ "value": "web / desktop" }
 					],
@@ -86,7 +86,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261118" },
-						{ "value": "newsletter" },
+						{ "value": "newsletter / email" },
 						{ "value": "novidades_exemplo" },
 						{ "value": "web / mobile" }
 					],
@@ -98,22 +98,22 @@
 			"kind": "analyticsData#runReport"
 		},
 		"sheets_google_drive_users": {
-			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSource" }],
+			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSourceMedium" }],
 			"metricHeaders": [
 				{ "name": "firstTimePurchasers", "type": "TYPE_INTEGER" },
 				{ "name": "newUsers", "type": "TYPE_INTEGER" }
 			],
 			"rows": [
 				{
-					"dimensionValues": [{ "value": "20261116" }, { "value": "google" }],
+					"dimensionValues": [{ "value": "20261116" }, { "value": "google / organic" }],
 					"metricValues": [{ "value": "4" }, { "value": "310" }]
 				},
 				{
-					"dimensionValues": [{ "value": "20261116" }, { "value": "Google" }],
+					"dimensionValues": [{ "value": "20261116" }, { "value": "Google / organic" }],
 					"metricValues": [{ "value": "1" }, { "value": "12" }]
 				},
 				{
-					"dimensionValues": [{ "value": "20261117" }, { "value": "(direct)" }],
+					"dimensionValues": [{ "value": "20261117" }, { "value": "(direct) / (none)" }],
 					"metricValues": [{ "value": "2" }, { "value": "95" }]
 				}
 			],
@@ -122,7 +122,7 @@
 			"kind": "analyticsData#runReport"
 		},
 		"sheets_google_drive_items": {
-			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSource" }, { "name": "itemName" }],
+			"dimensionHeaders": [{ "name": "date" }, { "name": "sessionSourceMedium" }, { "name": "itemName" }],
 			"metricHeaders": [
 				{ "name": "itemRevenue", "type": "TYPE_CURRENCY" },
 				{ "name": "itemsPurchased", "type": "TYPE_INTEGER" }
@@ -131,7 +131,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261116" },
-						{ "value": "google" },
+						{ "value": "google / organic" },
 						{ "value": "Produto Exemplo A" }
 					],
 					"metricValues": [{ "value": "159.8" }, { "value": "2" }]
@@ -139,7 +139,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261116" },
-						{ "value": "Google" },
+						{ "value": "Google / organic" },
 						{ "value": "Produto Exemplo A" }
 					],
 					"metricValues": [{ "value": "79.9" }, { "value": "1" }]
@@ -147,7 +147,7 @@
 				{
 					"dimensionValues": [
 						{ "value": "20261118" },
-						{ "value": "(direct)" },
+						{ "value": "(direct) / (none)" },
 						{ "value": "Produto Exemplo B" }
 					],
 					"metricValues": [{ "value": "45.5" }, { "value": "1" }]
