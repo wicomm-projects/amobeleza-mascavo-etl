@@ -1,4 +1,4 @@
-# Plano — Virada para produção (VTEX, AnyMarket e GA4 da Mascavo)
+# Plano — Virada para produção (VTEX, AnyMarket e GA4 das duas marcas)
 
 Pergunta AMO-Q40 (25/11/2026). Este é o roteiro para o ETL novo começar a gravar nos bancos da cliente (`mascavo_etl` e
 `amobeleza_etl`), que o Power BI lê. **Nada aqui foi executado.** Cada passo diz quem faz e o que confere.
@@ -21,9 +21,9 @@ A mensagem de WhatsApp é a autorização por escrito que o `CLAUDE.md` pede. Po
 - **Entram:**
     - VTEX das duas marcas (pedidos e catálogo);
     - AnyMarket (`amobeleza_etl`);
-    - GA4 da Mascavo.
+    - GA4 da Mascavo;
+    - GA4 da Amobeleza (paridade no PR #20, 25/11/2026).
 - **Ficam para depois**, cada um com a sua paridade e os seus GRANTs quando o conector existir:
-    - GA4 da Amobeleza, que espera a permissão na propriedade;
     - fase 2 (planilhas e ERP);
     - fase 4 (mídia);
     - fase 5 (afiliados);
@@ -126,6 +126,7 @@ npm run etl -- parity vtex-catalog --brand mascavo --sample 200
 npm run etl -- parity vtex-catalog --brand amobeleza --sample 200
 npm run etl -- parity anymarket-orders --sample 200
 npm run etl -- parity ga4 --brand mascavo
+npm run etl -- parity ga4 --brand amobeleza
 ```
 
 Critério: nenhuma divergência fora das aceitas. No GA4, os totais dentro do que já foi medido.
@@ -139,6 +140,7 @@ Critério: nenhuma divergência fora das aceitas. No GA4, os totais dentro do qu
 | 3     | `npm run etl -- run vtex-orders --brand amobeleza --from 2026-10-05`    | Idem                                                          |
 | 4     | `npm run etl -- run anymarket-orders --from 2026-10-05`                 | Pega também o que mudou depois que o ETL antigo parou         |
 | 5     | `npm run etl -- run ga4 --brand mascavo --from 2026-08-20`              | O histórico do GA4 parou em 19/08 (usuários e itens em 20/08) |
+| 6     | `npm run etl -- run ga4 --brand amobeleza --from 2026-10-01`            | O GA4 da Amobeleza parou em 30/09 e 01/10                     |
 
 - Rodar uma de cada vez, conferindo o resumo de cada uma (linhas por tabela, notas e falhas) antes da próxima.
 - **Opcional, a decidir com a cliente:** recarregar os pedidos **antigos** da Mascavo (`--from 2026-01-01`, por
@@ -171,6 +173,5 @@ Critério: nenhuma divergência fora das aceitas. No GA4, os totais dentro do qu
 
 ## Depois da virada
 
-- GA4 da Amobeleza: permissão, paridade e GRANTs, se houver tabela nova.
 - Fases 2, 4 e 5: cada conector com a sua paridade e um adendo de GRANTs em `ops/mysql/`.
 - Levar à cliente o `docs/melhorias-propostas.md`.

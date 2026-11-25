@@ -139,7 +139,24 @@ vehicle_channel_no_pay, type }` ou `{ midia, vehicle_channel_no_pay, type }`.
 com a produção, tabela por tabela (só SELECT com LIMIT). Sem `--from`/`--to`, usa 7 dias que terminam 7 dias antes do
 último dia de `sheets_google_drive_trafego`. O relatório e as notas trazem, por tabela, o total de cada coluna numérica
 nos dois lados e a diferença em %: o GA4 pode diferir um pouco do Supermetrics, e o total mostra se é ruído ou erro de
-regra. A Amobeleza fica fora por enquanto (propriedade sem permissão, sem chave de junção definida).
+regra. As chaves e os totais são por marca. Na produção, linhas repetidas (mesma chave gravada mais de uma vez)
+ficam com a gravação mais recente, e a nota diz quantas eram. A `por_hora` da Amobeleza, que guarda só os últimos
+dias, é comparada nos dias que a produção tem, lendo o GA4 um dia por vez.
+
+**Resultado da Amobeleza (25/11/2026)**: tráfego e transações de 18 a 24/09/2026; por hora nos 4 dias da produção.
+
+| Tabela       | Total produção (sem repetição) → novo                                                 | Leitura                    |
+| ------------ | ------------------------------------------------------------------------------------- | -------------------------- |
+| `trafego`    | sessões −3,1%, novos usuários −2,0%, pageviews −2,3%, receita −1,7%, transações −1,3% | bate                       |
+| `transacoes` | transações +1,8%, receita +3,0%; 2 de 433 pedidos divergem (origem mudou)             | bate                       |
+| `por_hora`   | receita −6,9%, transações −5,6%, sessões −3,0%                                        | bate, com ruído            |
+| `navegacao`  | produção vazia desde antes de 2025                                                    | o Power BI não lê a tabela |
+
+**O pipeline antigo da Amobeleza gravava cada dia duas vezes** (às 11h do dia seguinte e de novo no outro dia,
+acrescentando sem apagar). Na semana medida, eram 1.806 linhas repetidas no tráfego e 264 nas transações, e os totais
+com repetição davam cerca de 1,5x a 1,9x o real. O ETL novo grava cada janela substituindo a anterior, sem repetir.
+Se o Power BI da Amobeleza soma essas tabelas sem tirar a repetição, os números de GA4 dele **vão cair** para o valor
+real na virada. Conferir quando chegar o `.pbit` da Amobeleza.
 
 **Resultado de 25/11/2026** (06 a 12/08/2026, Mascavo):
 

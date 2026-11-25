@@ -147,17 +147,67 @@ describe('paridade do ga4', () => {
 		expect(calls).toEqual([{ from: '2026-08-01', to: '2026-08-07' }])
 	})
 
-	it('Amobeleza fica fora da comparação, com nota, e não lê o GA4', async () => {
-		const { reader, queries } = fakeRefReader({})
+	it('Amobeleza: compara o tráfego na janela e a por_hora nas datas que a produção tem', async () => {
+		const amobeleza = reportsOf('amobeleza')
+		const trafegoDef = amobeleza.find(candidate => candidate.table === TRAFEGO)
+		const porHoraDef = amobeleza.find(candidate => candidate.table === 'sheets_google_drive_por_hora')
+
+		if (!trafegoDef || !porHoraDef) throw new Error('sem definições da Amobeleza')
+
+		const trafego: tRow = {
+			date: '2026-08-01',
+			source_medium: 'google / cpc',
+			campaign: 'x',
+			device_category: 'mobile',
+			mobile_device_brand: 'Apple',
+			sessions: 10,
+			bounces: 2,
+			new_users: 3,
+			pageviews: 30,
+			transaction_revenue: 100,
+			transactions: 1
+		}
+		const porHora: tRow = { date: '2026-10-03', hour: 14, transaction_revenue: 50, transactions: 1, sessions: 9 }
+		const { reader } = fakeRefReader({ [TRAFEGO]: [trafego], sheets_google_drive_por_hora: [porHora] })
 		const { captured, writeReport } = capture()
-		const { read, calls } = readOf([])
+		const calls: { from: string; to: string; tables: string[] }[] = []
+		const read = async (_brand: string, from: string, to: string, definitions?: readonly { table: string }[]) => {
+			calls.push({ from, to, tables: (definitions ?? []).map(definition => definition.table) })
+
+			if (definitions)
+				return {
+					prepared: [
+						{
+							definition: { ...porHoraDef, scope: { kind: 'window' as const, dateColumn: 'date' } },
+							window: { from, to },
+							rows: [porHora]
+						}
+					],
+					notes: []
+				}
+
+			return {
+				prepared: [
+					{ definition: trafegoDef, window: { from, to }, rows: [trafego] },
+					{ definition: porHoraDef, window: { from: '2026-11-22', to: '2026-11-25' }, rows: [] }
+				],
+				notes: []
+			}
+		}
 		const context = { ...contextOf(reader), brand: 'amobeleza', database: 'amobeleza_etl' } satisfies iParityContext
 		const summary = await ga4Parity(context, { read, writeReport })
 
-		expect(summary.tables).toEqual([])
-		expect(summary.notes?.[0]).toMatch(/Amobeleza fora da paridade/)
-		expect(calls).toEqual([])
-		expect(queries).toEqual([])
+		expect(calls).toEqual([
+			{ from: '2026-08-01', to: '2026-08-07', tables: [] },
+			{ from: '2026-10-03', to: '2026-10-03', tables: ['sheets_google_drive_por_hora'] }
+		])
+		expect(summary.tables).toEqual([
+			{ table: TRAFEGO, compared: 1, divergent: 0 },
+			{ table: 'sheets_google_drive_por_hora', compared: 1, divergent: 0 }
+		])
 		expect(captured.job).toBe('ga4-amobeleza')
+		expect(summary.notes?.join(' ')).toMatch(
+			/por_hora: comparada nos 1 dia\(s\) que a produção tem, entre 2026-10-03 e 2026-10-03/
+		)
 	})
 })
