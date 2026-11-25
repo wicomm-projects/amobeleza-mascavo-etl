@@ -8,8 +8,8 @@ import { AppError, NotConfiguredError } from '../../core/errors.js'
 import type { tFilterExpression, tOrderBy } from './reports.js'
 import {
 	type iReportData,
+	incompatibleRequested,
 	parseFixture,
-	parseIncompatible,
 	parseMetadataNames,
 	parseReport,
 	type tFixture
@@ -59,7 +59,10 @@ const openClient = async (): Promise<BetaAnalyticsDataClient> => {
 
 	const { BetaAnalyticsDataClient } = await import('@google-analytics/data')
 
-	return new BetaAnalyticsDataClient({ keyFilename })
+	// Sem `keyFilename` (a biblioteca marcou como obsoleto): a credencial padrão do Google lê o mesmo
+	// GOOGLE_APPLICATION_CREDENTIALS, que o .env carrega no process.env. A checagem acima garante que ele existe, então a
+	// biblioteca não cai em outra credencial da máquina.
+	return new BetaAnalyticsDataClient()
 }
 
 const tooManyRows = (table: string, request: iReportRequest, rows: number) =>
@@ -218,7 +221,9 @@ const checkProperty = async (
 				},
 				{ timeout: GA4_CALL_TIMEOUT_MS }
 			)
-			const names = parseIncompatible(rawCompatibility)
+			// O checkCompatibility falha sozinho se os campos pedidos forem incompatíveis entre si; a lista que ele devolve é
+			// do que não poderia ser acrescentado. Só conta se algum campo pedido aparecer nela.
+			const names = incompatibleRequested(rawCompatibility, [...request.dimensions, ...request.metrics])
 
 			if (names.length > 0) incompatible.push(`${table}: ${names.join(', ')}`)
 		}

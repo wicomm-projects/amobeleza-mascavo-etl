@@ -174,5 +174,15 @@ const parseIncompatible = (raw: unknown): string[] => {
 	return [...dimensions, ...metrics]
 }
 
-export { parseFixture, parseIncompatible, parseMetadataNames, parseReport }
+/**
+ * Dos campos que o checkCompatibility marcou como incompatíveis, só os que o relatório PEDE. A resposta lista todos os
+ * campos que não poderiam ser acrescentados ao relatório (centenas); isso não é erro do relatório.
+ */
+const incompatibleRequested = (raw: unknown, requested: Iterable<string>): string[] => {
+	const names = new Set(requested)
+
+	return parseIncompatible(raw).filter(name => names.has(name))
+}
+
+export { incompatibleRequested, parseFixture, parseIncompatible, parseMetadataNames, parseReport }
 export type { iReportData, iReportMetadata, tFixture }
