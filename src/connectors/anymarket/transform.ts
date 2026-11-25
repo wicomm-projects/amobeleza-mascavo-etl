@@ -117,10 +117,17 @@ const metadataText = (value: unknown): string | null => {
  * Chaves de `metadata` que viram colunas meta_data_*. Só `needInvoiceXML` aparece na especificação pública; as outras três
  * são o nome da coluna em camelCase — assumidas, a confirmar com o token e a paridade.
  */
+/**
+ * Chaves em `metadata` do pedido, com a grafia que a API manda (paridade real, 25/11/2026):
+ * - `system_origin` (com sublinhado): o ETL antigo gravava, ex.: "Amazon Global Api" nos pedidos da Amazon;
+ * - `shippingTypeToSend`: a API manda `ShippingTypeToSend` (S maiúsculo) e o ETL antigo lia esta grafia, então a coluna
+ *   ficou sempre vazia (0 de 100 pedidos). Mantido igual ao antigo: nenhum relatório conhecido lê; ver
+ *   docs/melhorias-propostas.md.
+ */
 const METADATA_KEYS = {
 	needInvoiceXml: 'needInvoiceXML',
 	fiscalDocumentFileType: 'fiscalDocumentFileType',
-	systemOrigin: 'systemOrigin',
+	systemOrigin: 'system_origin',
 	shippingTypeToSend: 'shippingTypeToSend'
 } as const
 

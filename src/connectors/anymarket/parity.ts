@@ -85,7 +85,8 @@ const TABLE_SPECS: iTableSpec[] = [
 		ignoreColumns: CHILD_IGNORED
 	},
 	{ table: ANYMARKET_TABLES.shipping, keyColumns: [ORDER_KEY_COLUMN], ignoreColumns: CHILD_IGNORED },
-	{ table: ANYMARKET_TABLES.tracking, keyColumns: [ORDER_KEY_COLUMN, 'number'], ignoreColumns: CHILD_IGNORED },
+	// Um rastreio por pedido; o código (`number`) pode ser trocado depois e vai para as colunas de andamento.
+	{ table: ANYMARKET_TABLES.tracking, keyColumns: [ORDER_KEY_COLUMN], ignoreColumns: CHILD_IGNORED },
 	{ table: ANYMARKET_TABLES.buyer, keyColumns: [ORDER_KEY_COLUMN], ignoreColumns: CHILD_IGNORED }
 ]
 
@@ -106,14 +107,43 @@ const PROGRESS_COLUMNS = [
 const VOLATILE_COLUMNS: Readonly<Partial<Record<string, readonly string[]>>> = {
 	[ANYMARKET_TABLES.orders]: PROGRESS_COLUMNS,
 	[ANYMARKET_TABLES.payments]: ['status'],
-	[ANYMARKET_TABLES.tracking]: ['url', 'carrier', 'date', 'estimate_date', 'shipped_date', 'delivered_date']
+	[ANYMARKET_TABLES.tracking]: ['number', 'url', 'carrier', 'date', 'estimate_date', 'shipped_date', 'delivered_date']
 }
 
+const EMPTY_BEFORE = 'vazio na gravação antiga; o novo grava o que a API manda (nenhum relatório conhecido lê)'
+const EDITED_LATER = 'texto editado no AnyMarket depois da gravação antiga'
+
 /**
- * Diferenças conhecidas com o ETL antigo, aceitas. Começa vazio: preenche-se depois da paridade real, cada coluna com o
- * motivo (como em src/connectors/vtex/orders-parity.ts).
+ * Diferenças conhecidas com o ETL antigo, *assumidas, a confirmar* (paridade real de 25/11/2026, 100 pedidos de 7 contas).
+ * Continuam no relatório completo, mas não contam como divergência. O que o Power BI da Mascavo lê destas tabelas (valor
+ * bruto, desconto, frete, data de criação, status, SKU, quantidade, total, método de pagamento, cidade e UF) bateu.
  */
-const ACCEPTED_DIFFERENCES: tAcceptedDifferences = {}
+const ACCEPTED_DIFFERENCES: tAcceptedDifferences = {
+	[ANYMARKET_TABLES.orders]: {
+		meta_data_need_invoice_xml: EMPTY_BEFORE,
+		meta_data_fiscal_document_file_type: EMPTY_BEFORE
+	},
+	[ANYMARKET_TABLES.items]: {
+		sku_name: EMPTY_BEFORE,
+		sku_partner_ean: EMPTY_BEFORE,
+		id_in_marketplace: EMPTY_BEFORE,
+		marketplace_id: EMPTY_BEFORE,
+		product_name: EDITED_LATER,
+		sku_kit_title: EDITED_LATER
+	},
+	[ANYMARKET_TABLES.payments]: {
+		market_place_id: EMPTY_BEFORE
+	},
+	[ANYMARKET_TABLES.shipping]: {
+		country_normalized: EMPTY_BEFORE,
+		promised_shipping_time:
+			'a API manda hoje meia-noite UTC no Mercado Livre e a produção tem 03:00 (data recalculada ou formato mudado ' +
+			'depois); nenhum relatório conhecido lê'
+	},
+	[ANYMARKET_TABLES.buyer]: {
+		name: 'o comprador pode atualizar o cadastro depois da gravação antiga'
+	}
+}
 
 const endOfDayUtc = (date: Date): Date =>
 	new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999))
@@ -282,10 +312,15 @@ const anymarketParity = async (ctx: iParityContext, deps: iParityDeps = {}): Pro
 	// 6. Classificação pelas colunas de andamento.
 	const stable: number[] = []
 	const changedAfter: number[] = []
+	// "status na produção → status hoje": mostra se o ETL antigo atualizava o pedido depois da primeira gravação.
+	const statusTransitions: Record<string, number> = {}
 
 	for (const [orderId, rows] of transformed) {
 		const production = productionOrders.get(orderId)
 		const moved = PROGRESS_COLUMNS.some(column => normalize(production?.[column]) !== normalize(rows.order[column]))
+		const transition = `${String(production?.status)} → ${String(rows.order.status)}`
+
+		statusTransitions[transition] = (statusTransitions[transition] ?? 0) + 1
 
 		if (moved) changedAfter.push(orderId)
 		else stable.push(orderId)
@@ -336,6 +371,7 @@ const anymarketParity = async (ctx: iParityContext, deps: iParityDeps = {}): Pro
 		byAccount,
 		stable: stable.length,
 		changedAfter,
+		statusTransitions,
 		withoutProduction,
 		invalid,
 		outOfRange,
@@ -352,6 +388,10 @@ const anymarketParity = async (ctx: iParityContext, deps: iParityDeps = {}): Pro
 		`Amostra por conta: ${accounts || '(vazia)'}`,
 		`${stable.length} estável(is) (comparação estrita), ${changedAfter.length} mudaram depois do ETL antigo ` +
 			`(sem as colunas de andamento), ${withoutProduction.length} sem produção`,
+		`Status na produção → hoje: ${Object.entries(statusTransitions)
+			.sort((left, right) => right[1] - left[1])
+			.map(([transition, count]) => `${transition} ${count}`)
+			.join(', ')}`,
 		listNote('Fora do formato', invalid),
 		listNote('Número fora da faixa (fora da comparação)', outOfRange),
 		...extraNotes(results),
