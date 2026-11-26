@@ -31,24 +31,25 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
 
 ## Resumo
 
-| #   | Ponto                                                               | Onde             | Prioridade | Nível                 |
-| --- | ------------------------------------------------------------------- | ---------------- | ---------- | --------------------- |
-| 1   | Sessões e Taxa de conversão sempre em zero na Visão Geral           | Power BI         | Alta       | Power BI              |
-| 2   | Senhas em texto aberto nas documentações da WPP, inclusive root     | Segurança        | Alta       | Servidor e banco      |
-| 3   | "Hoje" dos cartões depende da última atualização do Power BI        | Operação         | Alta       | Power BI              |
-| 4   | Pedidos de marketplace fora do TikTok aparecem como origem Site     | Power BI         | Média      | Power BI              |
-| 5   | Regras de status do AnyMarket em maiúsculas nunca se aplicam        | Power BI         | Média      | Power BI              |
-| 6   | Listas fixas digitadas dentro do Power BI                           | Power BI         | Média      | 2 ou 3                |
-| 7   | Total do pedido em centavos e o resto em reais                      | Banco            | Média      | 2 (3 não recomendado) |
-| 8   | Departamento da árvore de categorias gravado errado pelo ETL antigo | Banco            | Média      | 1, a confirmar        |
-| 9   | `vtex_orders` sem chave primária aceita pedido duplicado            | Banco            | Média      | 2                     |
-| 10  | Nome `sub_category_id` guarda o ID da categoria pai                 | Banco            | Baixa      | 3 (não recomendado)   |
-| 11  | Consulta de produtos liga uma tabela que não usa (`vtex_skus`)      | Power BI         | Baixa      | Power BI              |
-| 12  | Tabelas sem uso: `vtex_products` da Amobeleza e as do Laravel       | Banco            | Baixa      | 2                     |
-| 13  | Valores substitutos gravados quando a VTEX não manda o dado         | Banco            | Baixa      | 1                     |
-| 14  | GA4 da Amobeleza com nomes de coluna do Universal Analytics         | Banco e Power BI | Baixa      | 3                     |
-| 15  | Tipo de envio do AnyMarket nunca gravado                            | Banco            | Baixa      | 1                     |
-| 16  | AnyMarket guarda só o último pagamento de cada pedido               | Banco e Power BI | Média      | 1 + Power BI          |
+| #   | Ponto                                                               | Onde             | Prioridade | Nível                        |
+| --- | ------------------------------------------------------------------- | ---------------- | ---------- | ---------------------------- |
+| 1   | Sessões e Taxa de conversão sempre em zero na Visão Geral           | Power BI         | Alta       | Power BI                     |
+| 2   | Senhas em texto aberto nas documentações da WPP, inclusive root     | Segurança        | Alta       | Servidor e banco             |
+| 3   | "Hoje" dos cartões depende da última atualização do Power BI        | Operação         | Alta       | Power BI                     |
+| 4   | Pedidos de marketplace fora do TikTok aparecem como origem Site     | Power BI         | Média      | Power BI                     |
+| 5   | Regras de status do AnyMarket em maiúsculas nunca se aplicam        | Power BI         | Média      | Power BI                     |
+| 6   | Listas fixas digitadas dentro do Power BI                           | Power BI         | Média      | 2 ou 3                       |
+| 7   | Total do pedido em centavos e o resto em reais                      | Banco            | Média      | 2 (3 não recomendado)        |
+| 8   | Departamento da árvore de categorias gravado errado pelo ETL antigo | Banco            | Média      | 1, a confirmar               |
+| 9   | `vtex_orders` sem chave primária aceita pedido duplicado            | Banco            | Média      | 2                            |
+| 10  | Nome `sub_category_id` guarda o ID da categoria pai                 | Banco            | Baixa      | 3 (não recomendado)          |
+| 11  | Consulta de produtos liga uma tabela que não usa (`vtex_skus`)      | Power BI         | Baixa      | Power BI                     |
+| 12  | Tabelas sem uso: `vtex_products` da Amobeleza e as do Laravel       | Banco            | Baixa      | 2                            |
+| 13  | Valores substitutos gravados quando a VTEX não manda o dado         | Banco            | Baixa      | 1                            |
+| 14  | GA4 da Amobeleza com nomes de coluna do Universal Analytics         | Banco e Power BI | Baixa      | 3                            |
+| 15  | Tipo de envio do AnyMarket nunca gravado                            | Banco            | Baixa      | 1                            |
+| 16  | AnyMarket guarda só o último pagamento de cada pedido               | Banco e Power BI | Média      | 1 + Power BI                 |
+| 17  | Seller do item gravado como 0 quando é seller terceiro              | Banco            | Média      | 2 (3 se algum relatório ler) |
 
 ## Prioridade alta
 
@@ -200,6 +201,21 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
   200 pedidos), e qualquer soma de valor pago desses pedidos fica menor que o real.
 - **Proposta:** gravar todos os pagamentos (nível 1) e, junto, ajustar os relatórios que leem a tabela para escolher o
   pagamento principal ou somar os valores (Power BI).
+
+### 17. Seller do item gravado como 0 quando é seller terceiro
+
+- **O que é:** em `vtex_order_items.seller`, a VTEX manda o código do seller que vendeu o item: `1` para a própria
+  loja e um código de texto para sellers terceiros do marketplace (ex.: `CNL007`). A coluna é `int`, então o ETL
+  antigo gravava `0` para todo seller terceiro, e o ETL novo grava igual (correção de 26/11/2026). Na produção da
+  Amobeleza, desde 01/08/2026: 37.944 itens com `1` e 64 com `0`. Nos pedidos novos (desde 05/10), foram 782 pedidos
+  com seller terceiro.
+- **Impacto:** pelo item, não dá para saber **qual** seller terceiro vendeu (Kassio Perfumaria, Poderosa Beleza...):
+  todos viram `0`. Na Amobeleza, `vtex_orders.seller_name` guarda o nome do seller do pedido, o que cobre parte da
+  necessidade; na Mascavo, essa coluna não existe.
+- **Proposta:** mudar a coluna para texto (`ALTER TABLE vtex_order_items MODIFY seller varchar(50) NOT NULL`, nas duas
+  marcas, nível 2) e o ETL passar a gravar o código real (`1`, `CNL007`...). Antes, conferir nos Power BI das duas
+  marcas se algum lê `seller`: se ler como número, o relatório precisa de ajuste junto (nível 3). O ALTER é feito pelo
+  administrador do banco (o `wicomm_etl` não tem permissão de alterar tabela).
 
 ## O que o ETL novo grava diferente do antigo
 
