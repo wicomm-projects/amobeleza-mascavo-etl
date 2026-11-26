@@ -122,6 +122,20 @@ describe('valores dos pedidos: só vtex_orders.total_value fica em centavos', ()
 		expect(row?.payment_id).toBe('0')
 	})
 
+	it('seller terceiro com código de texto (ex.: "CNL007") grava 0, como o ETL antigo; número fica número', async () => {
+		const detail = await firstOf()
+		const [first] = detail.items ?? []
+
+		if (!first) throw new Error('fixture sem item')
+
+		const sellerDe = (seller: string | number) =>
+			toItemRows({ ...detail, items: [{ ...first, seller }] })[0]?.seller
+
+		expect(sellerDe('CNL007')).toBe(0)
+		expect(sellerDe('1')).toBe(1)
+		expect(sellerDe(2)).toBe(2)
+	})
+
 	it('logística e pagamentos em reais', async () => {
 		const detail = await firstOf()
 		const [logistics] = toLogisticsInfoRows(detail)
