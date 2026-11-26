@@ -13,7 +13,7 @@ import { flag, required, toInt, toJson, toReais, toText, toUtcDate } from './val
  * sem fração; status em inglês e descrição em português, sem traduzir; booleano em 1/0. Valor ausente fica nulo. Em
  * coluna NOT NULL, valor
  * ausente lança (`required`): só aquele pedido fica fora da carga, em vez de o MySQL derrubar a transação inteira. A
- * exceção são 8 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
+ * exceção são 9 colunas NOT NULL em que o ETL antigo gravava um substituto (OLD_ETL_FALLBACK), medido na produção.
  *
  * Toda linha de uma tabela sai com as mesmas colunas (o writer exige).
  */
@@ -107,8 +107,23 @@ const OLD_ETL_FALLBACK = {
 	 * payment_id de pedido de marketplace (ex.: Panvel, "PVL-"): a VTEX manda o pagamento sem id e o ETL antigo gravou
 	 * "0" (paridade, 24/11/2026). Sem o substituto, o pedido inteiro ficava fora da carga.
 	 */
-	paymentId: '0'
+	paymentId: '0',
+	/**
+	 * seller do item quando o código não é número (seller terceiro do marketplace, ex.: "CNL007"): a coluna é int e o ETL
+	 * antigo gravou 0 (produção da Amobeleza, só leitura, 26/11/2026: itens da loja = 1, de sellers terceiros como Kassio
+	 * Perfumaria e Poderosa Beleza = 0). Sem o substituto, o pedido inteiro ficava fora da carga (782 na primeira carga).
+	 */
+	nonNumericSeller: 0
 } as const
+
+/** Código do seller do item na coluna int: número quando é número; senão o substituto do ETL antigo. */
+const sellerOf = (seller: string | number | null | undefined, label: string): number => {
+	const text = typeof seller === 'string' ? seller.trim() : seller
+
+	if (text === null || text === undefined || text === '') return required<number>(null, label)
+
+	return /^\d+$/.test(String(text)) ? Number(text) : OLD_ETL_FALLBACK.nonNumericSeller
+}
 
 /**
  * Contexto da carga para os substitutos do ETL antigo. Mantém a transformação pura (sem relógio): quem chama informa.
@@ -181,7 +196,7 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 			ean: item.ean ?? null,
 			lockid: item.lockId ?? OLD_ETL_FALLBACK.lockId(detail.orderId),
 			quantity: item.quantity,
-			seller: required(toInt(item.seller, field('seller')), field('seller')),
+			seller: sellerOf(item.seller, field('seller')),
 			name: toText(item.name),
 			refid: item.refId ?? OLD_ETL_FALLBACK.refId,
 			price: toReais(item.price),
