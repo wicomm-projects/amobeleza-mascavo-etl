@@ -2,12 +2,13 @@ import { parseArgs } from 'node:util'
 
 import 'dotenv/config'
 
-import { getEnv, isBrand, type tBrand } from './config/index.js'
+import { getEnv, getTargetMode, isBrand, type tBrand } from './config/index.js'
 
 /**
  * CLI do ETL: `npm run etl -- <comando> [opções]`. Roda `npm run etl -- help` para a lista.
  *
- * Nenhum comando grava fora do Docker local. Os que tocam a produção (schema:pull, parity, check-access do banco de
+ * Só `run` grava, e só no destino do modo (TARGET_MODE): Docker local por padrão; banco da cliente com o wicomm_etl no
+ * modo produção. Os que leem a produção (schema:pull, parity, check-access do banco de
  * referência) só leem, pelo ref-reader.
  */
 
@@ -25,7 +26,7 @@ Uso: npm run etl -- <comando> [opções]
   db:apply                        Recria no Docker LOCAL as tabelas de db/schema/** (confere o marcador local)
   schema:pull                     Lê SHOW CREATE TABLE na produção (só leitura) das tabelas dos jobs → db/schema/
   run <job> [--brand b] [--from AAAA-MM-DD] [--to AAAA-MM-DD] [--dry-run] [--fixture arquivo.json]
-                                  Executa uma carga (destino: só o Docker local)
+                                  Executa uma carga (destino do TARGET_MODE: Docker local, ou produção com wicomm_etl)
   parity <job> [--brand b] [--sample N] [--from AAAA-MM-DD] [--to AAAA-MM-DD]
                                   Compara o que o ETL montaria com a produção, só lendo. Relatório em reports/
 `
@@ -62,6 +63,9 @@ const commandSources = async () => {
 	out(
 		`${'Banco de referência (cliente)'.padEnd(34)} ${referenceDbStatus().configured ? 'configurado' : 'aguardando usuário só leitura'}`
 	)
+	out(
+		`${'Destino das cargas'.padEnd(34)} ${getTargetMode() === 'production' ? 'PRODUÇÃO da cliente (wicomm_etl)' : 'MySQL local (Docker)'}`
+	)
 
 	return 0
 }
@@ -90,7 +94,7 @@ const commandJobs = async () => {
 const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) => {
 	const { SOURCES } = await import('./core/jobs/registry.js')
 	const { brandsOfSource } = await import('./core/sources-status.js')
-	const { checkLocalTarget, createRefReader, isRefConfigured } = await import('./core/db/index.js')
+	const { checkTarget, createRefReader, isRefConfigured } = await import('./core/db/index.js')
 	let failures = 0
 
 	for (const source of SOURCES) {
@@ -121,12 +125,21 @@ const commandCheckAccess = async (sourceFilter?: string, brandFilter?: tBrand) =
 
 	if (sourceFilter) return failures > 0 ? 1 : 0
 
-	// Banco local (destino): confere marcador, hostname, usuário e grants do Docker. Não grava nada.
+	// Banco de destino: confere a identidade do modo atual (Docker local, ou banco da cliente com o wicomm_etl). Não grava.
+	const production = getTargetMode() === 'production'
+	const targetLabel = (production ? 'Destino: PRODUÇÃO (cliente)' : 'Banco local (Docker)').padEnd(32)
+
 	try {
-		await checkLocalTarget()
-		out(`${'Banco local (Docker)'.padEnd(32)} OK: identidade do Docker local conferida`)
+		await checkTarget()
+		out(
+			`${targetLabel} OK: ${production ? 'servidor, usuário wicomm_etl e grants conferidos' : 'identidade do Docker local conferida'}`
+		)
 	} catch (err) {
-		out(`${'Banco local (Docker)'.padEnd(32)} indisponível: ${err instanceof Error ? err.message : String(err)}`)
+		if (production) failures += 1
+
+		out(
+			`${targetLabel} ${production ? 'FALHOU' : 'indisponível'}: ${err instanceof Error ? err.message : String(err)}`
+		)
 	}
 
 	// Banco de referência (produção): o reader confere SHOW GRANTS (só leitura, sem role) antes do SELECT 1 e recusa
@@ -195,6 +208,9 @@ const commandRun = async (jobName: string | undefined, values: Record<string, un
 	const job = findJob(jobName)
 
 	if (!job) throw new Error(`Job desconhecido: ${jobName}. Veja npm run etl -- jobs`)
+
+	if (getTargetMode() === 'production')
+		out('Destino: PRODUÇÃO da cliente (TARGET_MODE=production, usuário wicomm_etl)')
 
 	const record = await runJob({
 		job,

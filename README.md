@@ -10,8 +10,9 @@ Power BI.
 | Google Analytics 4                        | 3     | `sheets_google_drive_*` dos dois bancos | aguardando acesso |
 | AnyMarket (marketplaces, todas as contas) | 6     | `amobeleza_etl.anymarket_*`             | aguardando token  |
 
-> **Segurança:** nesta etapa o ETL só grava no MySQL local (Docker). Veja `CLAUDE.md` e
-> `docs/adr/2026-11-18-travas-de-escrita.md`.
+> **Segurança:** por padrão o ETL só grava no MySQL local (Docker). Só a VPS, com `TARGET_MODE=production`, grava no
+> banco da cliente, com o usuário `wicomm_etl`. Veja `CLAUDE.md`, `docs/adr/2026-11-18-travas-de-escrita.md` e
+> `docs/adr/2026-11-27-modo-producao-do-destino.md`.
 
 ## Rodar localmente
 

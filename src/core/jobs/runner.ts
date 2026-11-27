@@ -1,6 +1,6 @@
-import { getLogger, type tBrand } from '../../config/index.js'
+import { getLogger, getTargetMode, type tBrand, type tTargetMode } from '../../config/index.js'
 import { createWriter } from '../db/index.js'
-import { AppError } from '../errors.js'
+import { AppError, SafetyError } from '../errors.js'
 
 import { withJobLock } from './lock.js'
 import { sourceOfJob, tablesOf } from './registry.js'
@@ -26,8 +26,18 @@ const assertScope = (job: iJob, brand?: tBrand) => {
 	if (job.scope === 'global' && brand) throw new AppError(`O job ${job.name} é global: não use --brand.`)
 }
 
+/** Dado de exemplo (--fixture) nunca vai para o banco da cliente: no modo produção, só com --dry-run. */
+const assertRunOptions = (options: iRunOptions, mode: tTargetMode = getTargetMode()): void => {
+	if (mode === 'production' && options.fixture && !options.dryRun) {
+		throw new SafetyError(
+			'No modo produção, --fixture só roda com --dry-run: dado de exemplo nunca vai para o banco da cliente.'
+		)
+	}
+}
+
 const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord> => {
 	assertScope(job, brand)
+	assertRunOptions(options)
 
 	const logger = getLogger().child({ job: job.name, brand })
 	const startedAt = new Date()
@@ -90,5 +100,5 @@ const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord>
 	}
 }
 
-export { AWAITING_KEY, runJob }
+export { AWAITING_KEY, assertRunOptions, runJob }
 export type { iRunRequest }

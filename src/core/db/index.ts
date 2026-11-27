@@ -4,7 +4,7 @@
  */
 export { rowsOf } from './connection.js'
 export type { iConnectionSource, iSqlConnection } from './connection.js'
-export { checkLocalTarget, guardedTargetSource } from './guarded.js'
+export { checkTarget, guardedTargetSource } from './guarded.js'
 export { closePools, isRefConfigured } from './pools.js'
 export { createRefReader } from './ref-reader.js'
 export type { iRefReader } from './ref-reader.js'

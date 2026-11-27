@@ -50,6 +50,11 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
 | 15  | Tipo de envio do AnyMarket nunca gravado                            | Banco            | Baixa      | 1                            |
 | 16  | AnyMarket guarda só o último pagamento de cada pedido               | Banco e Power BI | Média      | 1 + Power BI                 |
 | 17  | Seller do item gravado como 0 quando é seller terceiro              | Banco            | Média      | 2 (3 se algum relatório ler) |
+| 18  | Usuário `dbeaver` com poder de administrador, aceito de qualquer IP | Segurança        | Alta       | Banco                        |
+| 19  | Acesso remoto (RDP) à máquina do banco publicado na internet        | Segurança        | Alta       | Servidor                     |
+| 20  | Logs do Laravel (Telescope) podem guardar chaves e dado pessoal     | Segurança        | Alta       | Banco, a confirmar           |
+| 21  | Conexão com o MySQL sem cifra obrigatória, com certificado padrão   | Segurança        | Média      | Servidor e banco + 1         |
+| 22  | Consultas do ETL sem tempo limite                                   | Operação         | Baixa      | 1                            |
 
 ## Prioridade alta
 
@@ -71,6 +76,10 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
     - revogar os acessos da WPP;
     - conferir que a porta do MySQL só aceita os IPs conhecidos;
     - manter o ETL com usuário próprio, com permissão só nas tabelas que ele grava.
+- **Andamento:** o ETL novo já usa usuários próprios: `wicomm_leitura` (só leitura) e `wicomm_etl` (só
+  SELECT/INSERT/UPDATE/DELETE tabela por tabela, preso ao IP da VPS). O `wicomm_etl` foi criado em 27/11/2026, a
+  pedido da cliente, com o usuário `dbeaver` da documentação da WPP. Esse foi o único uso dele, e o ETL nunca o usa.
+  Os pontos 18 e 19 detalham as contas da documentação que continuam abertas.
 
 ### 3. "Hoje" dos cartões depende da atualização do Power BI
 
@@ -162,7 +171,7 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
     - `amobeleza_etl.vtex_products` foi gravada uma única vez, em 02/09/2024, e nenhum relatório a lê. O ETL novo não
       a grava.
     - As tabelas do Laravel do ETL antigo (`failed_jobs`, `telescope_*`, `migrations`, `users` e outras) ficam sem uso
-      depois da troca.
+      depois da troca. Elas podem guardar chaves e dado pessoal: ver o ponto 20.
 - **Proposta:** apagar com backup (nível 2), ou manter como histórico.
 
 ### 13. Valores substitutos quando a VTEX não manda o dado
@@ -216,6 +225,84 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
   marcas, nível 2) e o ETL passar a gravar o código real (`1`, `CNL007`...). Antes, conferir nos Power BI das duas
   marcas se algum lê `seller`: se ler como número, o relatório precisa de ajuste junto (nível 3). O ALTER é feito pelo
   administrador do banco (o `wicomm_etl` não tem permissão de alterar tabela).
+
+### 18. Usuário `dbeaver` com poder de administrador, aceito de qualquer IP
+
+Prioridade alta, segurança. Encontrado em 27/11/2026, ao criar o `wicomm_etl`.
+
+- **O que é:** a documentação da WPP traz o usuário MySQL `dbeaver`, com a senha em texto aberto. Ele existe como
+  `dbeaver@%`: o MySQL aceita esse login vindo de **qualquer** IP. E tem praticamente todos os poderes de
+  administrador: criar e apagar bancos e usuários, dar permissões (`CREATE USER` e `GRANT OPTION`), `SUPER`,
+  `SHUTDOWN`, `FILE`, além das permissões administrativas do MySQL 8 (`*_ADMIN`).
+- **Impacto:** quem tiver o PDF da WPP (ou descobrir a senha) pode apagar ou alterar os dois bancos inteiros, ler todo
+  o dado pessoal e desligar o servidor. Se a porta do MySQL aceitar conexão da internet, basta o PDF. Não conferimos
+  o firewall da cliente; o `wicomm_leitura` só funcionou depois que o IP da VPS foi liberado, o que indica que existe
+  alguma lista de IPs, mas o `dbeaver@%` não depende dela no MySQL.
+- **Proposta (servidor e banco, feito pelo administrador da cliente):**
+    - antes de tudo, descobrir quem usa o `dbeaver` hoje (o Power BI ou o gateway dele, por exemplo), para não
+      derrubar nada;
+    - trocar a senha;
+    - restringir o host a IPs conhecidos (`RENAME USER 'dbeaver'@'%' TO 'dbeaver'@'<ip>'`), ou apagar o usuário se
+      ninguém mais usa;
+    - deixar a porta do MySQL aberta só para os IPs que precisam (a VPS do ETL e o gateway do Power BI).
+
+### 19. Acesso remoto (RDP) à máquina do banco publicado na internet
+
+Prioridade alta, segurança, a confirmar.
+
+- **O que é:** a documentação da WPP traz um acesso de área de trabalho remota (RDP) à máquina Windows que roda o
+  MySQL, num endereço público e numa porta alternativa, com usuário e senha em texto aberto.
+- **Impacto:** RDP aberto na internet é um dos alvos mais atacados (tentativa de senha em massa, falhas do próprio
+  RDP). Quem entra na máquina tem o banco, os arquivos e os backups. Não testamos se a porta continua aberta.
+- **Proposta (servidor, feito pela cliente ou por quem cuida da máquina):**
+    - trocar a senha do usuário da documentação e revogar o acesso da WPP;
+    - deixar o RDP só por VPN, ou só para IPs conhecidos;
+    - conferir se a máquina recebe as atualizações de segurança do Windows.
+
+### 20. Logs do Laravel (Telescope) podem guardar chaves e dado pessoal
+
+Prioridade alta, segurança, a confirmar.
+
+- **O que é:** o ETL antigo era uma aplicação Laravel com o Telescope ligado em produção. O Telescope é uma ferramenta
+  de depuração que grava em `telescope_entries` as requisições, as consultas ao banco com os valores e as chamadas
+  feitas a outras APIs. Essa tabela tem 193 GB na Amobeleza. Pela regra do projeto, o ETL novo nunca leu as tabelas do
+  Laravel, então não sabemos o que há lá dentro.
+- **Impacto:** se o Telescope gravou as chamadas à VTEX e ao AnyMarket com os cabeçalhos, as chaves de API (AppKey,
+  AppToken, token do AnyMarket) estão no banco, em texto aberto. As consultas gravadas podem ter dado pessoal de
+  clientes. As tabelas `users`, `password_resets` e `personal_access_tokens` também guardam credenciais da aplicação
+  antiga.
+- **Proposta:**
+    - trocar as chaves da VTEX e do AnyMarket que o ETL antigo usava, se ainda forem as mesmas (o ETL novo pode ganhar
+      chaves próprias, só de leitura);
+    - fazer backup e esvaziar as tabelas do Laravel (ponto 12), começando pela `telescope_entries`; isso também libera
+      os 193 GB (nível 2, feito pelo administrador do banco).
+
+### 21. Conexão com o MySQL sem cifra obrigatória, com certificado padrão
+
+Prioridade média, segurança. Encontrado em 27/11/2026.
+
+- **O que é:** o MySQL da cliente aceita TLS 1.2 e 1.3, mas não exige (`require_secure_transport = OFF`). Uma sessão do
+  DBeaver aberta sem configuração especial ficou sem cifra (`Ssl_cipher` vazio). O certificado é o padrão que o MySQL
+  gera sozinho (`server-cert.pem`), então nenhum cliente consegue conferir, pelo certificado, que está falando com o
+  servidor certo. Não sabemos se o ETL antigo usava TLS.
+- **Impacto:** quem conecta sem pedir TLS manda usuário, consultas e dado pessoal em texto aberto pela internet. O ETL
+  novo pede TLS 1.2+ e recusa gravar sem cifra, mas, com o certificado padrão, isso protege só contra quem escuta a
+  rede, não contra quem se passa pelo servidor.
+- **Proposta:**
+    - instalar um certificado próprio no MySQL (ou passar ao ETL o CA que o MySQL gerou) e o ETL passar a validar o
+      certificado (nível 1, depois do certificado);
+    - depois de confirmar que todos os clientes conectam com TLS (gateway do Power BI, DBeaver), ligar
+      `require_secure_transport = ON` (servidor).
+
+### 22. Consultas do ETL sem tempo limite
+
+Prioridade baixa, operação.
+
+- **O que é:** o ETL tem tempo limite para abrir a conexão com o banco (10 s), mas não para cada consulta. Se a rede
+  entre a VPS e o banco da cliente cair no meio de uma carga, a conexão fica presa até o MySQL derrubá-la.
+- **Impacto:** a carga demora a falhar. O agendador não começa outra carga do mesmo job enquanto essa não termina,
+  então não há dado duplicado nem gravação pela metade (a transação desfaz), só atraso no aviso.
+- **Proposta:** tempo limite por consulta no gravador (nível 1).
 
 ## O que o ETL novo grava diferente do antigo
 

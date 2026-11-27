@@ -1,10 +1,11 @@
 import mysql, { type Pool } from 'mysql2/promise'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { checkLocalTarget } from '../../src/core/db/guarded.js'
+import { checkTarget, guardedTargetSource } from '../../src/core/db/guarded.js'
 import { closePools } from '../../src/core/db/pools.js'
 import { prepareReadOnlySession } from '../../src/core/db/ref-reader.js'
 import { createWriter } from '../../src/core/db/writer.js'
+import { SafetyError } from '../../src/core/errors.js'
 
 /**
  * Integração com o MySQL LOCAL do docker-compose (npm run db:up). Prova no servidor real o que os testes unitários só
@@ -85,7 +86,11 @@ describe('MySQL local: sessão só leitura do ref-reader', () => {
 
 describe('MySQL local: identidade e gravação', () => {
 	it('o Docker local passa na conferência de identidade (marcador, hostname, usuário, grants)', async () => {
-		await expect(checkLocalTarget()).resolves.toBeUndefined()
+		await expect(checkTarget()).resolves.toBeUndefined()
+	})
+
+	it('no modo produção, o Docker local é recusado (servidor, usuário e grants não são os da cliente)', async () => {
+		await expect(guardedTargetSource(undefined, 'production').getConnection()).rejects.toThrow(SafetyError)
 	})
 
 	it('o writer grava, atualiza e reescreve janela no banco local, com datas em UTC', async () => {

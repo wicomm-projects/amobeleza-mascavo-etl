@@ -1,3 +1,4 @@
+import { getTargetMode, type tTargetMode } from '../../config/index.js'
 import type { tRow } from '../../core/db/index.js'
 
 import { ANYMARKET_TABLES } from './tables.js'
@@ -14,12 +15,10 @@ import { ANYMARKET_TABLES } from './tables.js'
  * Texto fixo, não hash: CPF tem poucas combinações e um hash seria revertido por força bruta. Cidade, UF, país, bairro e
  * CEP ficam (o Power BI usa região; mesma regra da VTEX). `document_type` (CPF/CNPJ) não identifica a pessoa e fica.
  *
- * Desligar SÓ no PR de liberação da produção (revisado, com autorização por escrito da cliente), junto com a máscara da
- * VTEX (src/connectors/vtex/personal-data.ts). Se ficar ligado por engano, o Power BI mostra "[mascarado]" — falha
- * visível, sem vazamento.
+ * Desligada SÓ no modo produção (TARGET_MODE=production), junto com a da VTEX (src/connectors/vtex/personal-data.ts):
+ * lá o Power BI precisa do dado como o ETL antigo gravava. No modo local continua sempre ligada. Se o modo ficar errado
+ * para o lado local, o Power BI mostra "[mascarado]" — falha visível, sem vazamento.
  */
-const MASK_PERSONAL_DATA = true
-
 const MASK = '[mascarado]'
 
 /** Colunas pessoais por tabela (dicionário da WPP, "Documentação Amobeleza", seção 2.5). */
@@ -29,10 +28,10 @@ const PERSONAL_COLUMNS: Readonly<Partial<Record<string, readonly string[]>>> = {
 }
 
 /** Linhas prontas para gravar: as colunas pessoais da tabela viram MASK (nulo continua nulo). */
-const maskPersonalData = (table: string, rows: tRow[]): tRow[] => {
+const maskPersonalData = (table: string, rows: tRow[], mode: tTargetMode = getTargetMode()): tRow[] => {
 	const columns = PERSONAL_COLUMNS[table]
 
-	if (!MASK_PERSONAL_DATA || !columns) return rows
+	if (mode === 'production' || !columns) return rows
 
 	return rows.map(row => {
 		const masked: tRow = { ...row }

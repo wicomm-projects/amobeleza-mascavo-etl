@@ -6,12 +6,21 @@ as mesmas colunas, tipos e convenções de antes (docs/contrato/).
 
 ## Regra número 1: produção da cliente
 
-**Nada neste repositório grava no banco da cliente.** Nesta etapa o destino só pode ser o MySQL local do Docker.
+**O destino tem dois modos (`TARGET_MODE`), e o padrão é o local.** Só a VPS, com `TARGET_MODE=production` no `.env`,
+grava no banco da cliente (ADR `docs/adr/2026-11-27-modo-producao-do-destino.md`). No computador do dev e nos testes, o
+destino é sempre o MySQL local do Docker.
 
-- O env recusa destino fora do loopback (`TARGET_DB_HOST`) e recusa o usuário `root` em qualquer banco.
-- Antes de gravar (e antes do lock e do `db:apply`), o núcleo confere no servidor a identidade do Docker local: marcador
-  `etl_local_meta.marker`, `@@hostname` = `amo-etl-mysql-local`, usuário `etl_local@%` e grants. Um túnel SSH para a
-  produção aparece como 127.0.0.1 — por isso a conferência é no servidor, não no host.
+- O env recusa o usuário `root` em qualquer banco e em qualquer modo. Valor desconhecido em `TARGET_MODE` é erro.
+- **Modo local:** o env só aceita destino em loopback. Antes de gravar (e antes do lock e do `db:apply`), o núcleo confere
+  no servidor a identidade do Docker local: marcador `etl_local_meta.marker`, `@@hostname` = `amo-etl-mysql-local`,
+  usuário `etl_local@%` e grants. Um túnel SSH para a produção aparece como 127.0.0.1 — por isso a conferência é no
+  servidor, não no host.
+- **Modo produção:** o host fica só no `.env` da VPS (nunca no Git, nunca loopback); porta e usuário (`wicomm_etl`)
+  precisam ser os de `src/config/production-target.ts`. Antes de gravar e do lock, o núcleo confere `@@hostname`, `@@server_uuid`, sessão com TLS, `CURRENT_USER()` =
+  `wicomm_etl@<IPv4>` e `SHOW GRANTS` só com SELECT/INSERT/UPDATE/DELETE tabela por tabela; usuário que pode mais (o
+  `dbeaver` da WPP, um GRANT em `banco`.*, DDL, GRANT OPTION, role) é recusado. `db:apply` é recusado, `--fixture` só com
+  `--dry-run`, e a máscara de dado pessoal só desliga nesse modo.
+- Mudar `PRODUCTION_TARGET` ou afrouxar qualquer trava acima é PR próprio, revisado por agente, com o ok do Matheus.
 - Fora de `src/core/db`, é proibido importar `mysql2`, pools ou conexões (ESLint). Use `src/core/db/index.ts`.
 - O banco da cliente (`REF_DB_*`) é só leitura: `src/core/db/ref-reader.ts` aceita um único SELECT/SHOW sem comentário
   nenhum, recusa usuário que não seja só leitura (SHOW GRANTS), roda em sessão `READ ONLY` + `START TRANSACTION READ
@@ -21,8 +30,8 @@ ONLY` com `max_execution_time`, e nunca lê tabela do Laravel. Consulta na produ
 - VTEX e AnyMarket: o cliente HTTP (`src/core/http/transport.ts`) só tem `get`, só com caminho relativo ("/...") e sem
   seguir redirect. Link de paginação absoluto (`next`) vira caminho relativo no conector. Nada é alterado nas
   plataformas.
-- Liberar gravação em produção é um PR próprio, revisado, só depois de: paridade OK, backup das tabelas, autorização
-  por escrito da cliente e usuário próprio com permissão só nas tabelas do mapa. Não "destrave" as regras acima em outro PR.
+- Ligar o modo produção na VPS só depois de: backup das tabelas, última paridade e conferência do `check-access`
+  (`docs/planos/2026-11-25-virada-producao.md`). A autorização por escrito da cliente veio pelo WhatsApp (25/11/2026).
 - Tabelas do Laravel (`failed_jobs`, `telescope_*`, `migrations`, `users`, `password_resets`, `personal_access_tokens`,
   `health_check_*`) nunca entram no código.
 

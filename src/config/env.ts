@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { PRODUCTION_TARGET } from './production-target.js'
+
 /**
  * Variáveis de ambiente do ETL, validadas com zod na primeira chamada (fail-fast).
  *
@@ -9,7 +11,10 @@ import { z } from 'zod'
  *
  * Travas desta etapa (ver docs/adr/2026-11-18-travas-de-escrita.md):
  * - Nenhum usuário de banco pode ser `root` (nem no destino, nem na referência).
- * - O destino (TARGET_DB_*) só pode ser o MySQL local. Gravar na produção da cliente exige um PR próprio de liberação.
+ * - Destino (TARGET_DB_*) em dois modos (docs/adr/2026-11-27-modo-producao-do-destino.md):
+ *   - `TARGET_MODE=local` (padrão): só o MySQL local (host loopback; o target-guard confere o marcador do Docker);
+ *   - `TARGET_MODE=production`: só o MySQL da cliente de PRODUCTION_TARGET (host no `.env`, nunca loopback; porta e
+ *     usuário fixos no código; o target-guard confere servidor, TLS, usuário e grants antes de gravar).
  * - O servidor HTTP só escuta em loopback.
  */
 
@@ -19,6 +24,8 @@ const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1'] as const
 const LOCAL_DB_HOSTS = LOOPBACK_HOSTS
 
 const FORBIDDEN_DB_USERS = ['root']
+
+const TARGET_MODES = ['local', 'production'] as const
 
 const optionalText = z
 	.string()
@@ -37,6 +44,70 @@ const dbUser = optionalText.refine(
 	value => value === undefined || !FORBIDDEN_DB_USERS.includes(value.toLowerCase()),
 	'O usuário root nunca é usado pelo ETL. Peça um usuário próprio à cliente.'
 )
+
+interface iTargetFields {
+	TARGET_MODE: (typeof TARGET_MODES)[number]
+	TARGET_DB_HOST: string
+	TARGET_DB_PORT: number
+	TARGET_DB_USER?: string | undefined
+	TARGET_DB_PASSWORD?: string | undefined
+}
+
+/**
+ * Host, porta e usuário do destino conforme o modo. No modo produção, o host (só no `.env`, fora do Git) nunca é
+ * loopback: a gravação na produção só sai da VPS, que é o IP liberado para o wicomm_etl (um túnel do computador do dev
+ * apareceria como 127.0.0.1 e é recusado aqui). Que o host é mesmo o banco da cliente, o target-guard confere no servidor
+ * (`@@server_uuid`); porta e usuário têm de ser os de PRODUCTION_TARGET.
+ */
+const checkTargetMode = (env: iTargetFields, ctx: z.RefinementCtx): void => {
+	if (env.TARGET_MODE === 'local') {
+		if ((LOCAL_DB_HOSTS as readonly string[]).includes(env.TARGET_DB_HOST)) return
+
+		ctx.addIssue({
+			code: 'custom',
+			path: ['TARGET_DB_HOST'],
+			message:
+				'No modo local o destino só pode ser o MySQL local (Docker). Gravar na produção exige TARGET_MODE=production.'
+		})
+
+		return
+	}
+
+	if ((LOOPBACK_HOSTS as readonly string[]).includes(env.TARGET_DB_HOST)) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['TARGET_DB_HOST'],
+			message:
+				'No modo produção o destino é o endereço do banco da cliente, nunca loopback: a gravação só sai da VPS (sem túnel).'
+		})
+	}
+
+	if (env.TARGET_DB_PORT !== PRODUCTION_TARGET.port) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['TARGET_DB_PORT'],
+			message: `No modo produção a porta é ${PRODUCTION_TARGET.port}.`
+		})
+	}
+
+	if (env.TARGET_DB_USER === undefined || env.TARGET_DB_PASSWORD === undefined) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['TARGET_DB_USER'],
+			message: 'No modo produção, TARGET_DB_USER e TARGET_DB_PASSWORD são obrigatórios.'
+		})
+
+		return
+	}
+
+	if (env.TARGET_DB_USER !== PRODUCTION_TARGET.user) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['TARGET_DB_USER'],
+			message: `No modo produção o usuário só pode ser ${PRODUCTION_TARGET.user} (permissão mínima, tabela por tabela).`
+		})
+	}
+}
 
 const envSchema = z
 	.object({
@@ -57,15 +128,11 @@ const envSchema = z
 		// Agendador interno (node-cron). Desligado por padrão: só liga na VPS, depois da liberação de cada fonte.
 		SCHEDULER_ENABLED: booleanFlag('false'),
 
-		// Banco de DESTINO. Nesta etapa só o MySQL local (Docker). O writer ainda confere o marcador etl_local_meta.marker.
-		TARGET_DB_HOST: z
-			.string()
-			.trim()
-			.default('127.0.0.1')
-			.refine(
-				value => (LOCAL_DB_HOSTS as readonly string[]).includes(value),
-				'Nesta etapa o destino só pode ser o MySQL local (Docker). Gravar na produção exige o PR de liberação.'
-			),
+		// Banco de DESTINO. `local` (padrão) = Docker; `production` = MySQL da cliente, só o de PRODUCTION_TARGET. Qualquer
+		// outro valor é erro: um erro de digitação não pode virar produção nem passar calado. Host, porta e usuário são
+		// conferidos por modo no superRefine (checkTargetMode).
+		TARGET_MODE: z.enum(TARGET_MODES, { error: 'TARGET_MODE aceita só local ou production.' }).default('local'),
+		TARGET_DB_HOST: z.string().trim().default('127.0.0.1'),
 		TARGET_DB_PORT: z.coerce.number().int().positive().default(3307),
 		TARGET_DB_USER: dbUser,
 		TARGET_DB_PASSWORD: optionalText,
@@ -110,6 +177,8 @@ const envSchema = z
 		HTTP_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(4)
 	})
 	.superRefine((env, ctx) => {
+		checkTargetMode(env, ctx)
+
 		const groups: Record<string, (keyof typeof env)[]> = {
 			'banco de destino': ['TARGET_DB_USER', 'TARGET_DB_PASSWORD'],
 			'banco de referência': ['REF_DB_HOST', 'REF_DB_USER', 'REF_DB_PASSWORD'],
@@ -174,5 +243,10 @@ const resetEnvCache = () => {
 	cachedEnv = null
 }
 
-export { getEnv, parseEnv, resetEnvCache, LOCAL_DB_HOSTS }
-export type { tEnv }
+type tTargetMode = tEnv['TARGET_MODE']
+
+/** Modo do destino (local ou produção), lido do env já validado. */
+const getTargetMode = (): tTargetMode => getEnv().TARGET_MODE
+
+export { getEnv, getTargetMode, parseEnv, resetEnvCache, LOCAL_DB_HOSTS, TARGET_MODES }
+export type { tEnv, tTargetMode }

@@ -148,7 +148,8 @@ npm run etl -- run ga4 --brand mascavo --from 2026-08-20
 npm run etl -- run ga4 --brand amobeleza --from 2026-10-01
 ```
 
-Até a liberação de produção, tudo grava só no MySQL local da VPS, com o dado pessoal mascarado (AMO-Q6).
+Enquanto `TARGET_MODE=local`, tudo grava só no MySQL local da VPS, com o dado pessoal mascarado (AMO-Q6). A troca
+para a produção está na seção 9.
 
 ## 7. Atualizar o código (depois de cada merge na `main`)
 
@@ -169,7 +170,43 @@ ssh -N -L 3316:HOST_DO_BANCO:3306 etl@IP_DA_VPS
 O túnel usa o `etl`, porque o root não entra mais por senha. No `.env` do seu computador: `REF_DB_HOST=127.0.0.1` e
 `REF_DB_PORT=3316`.
 
-## 9. Serviço (depois da liberação de produção)
+## 9. Modo produção (depois do merge do PR de liberação, do backup e da última paridade)
+
+Até aqui a VPS grava só no MySQL local dela. Para gravar no banco da cliente, o `.env` da VPS troca o destino. O resto
+do `.env` (VTEX, AnyMarket, GA4, `REF_DB_*`) não muda.
+
+**VPS, como `etl`:** `nano ~/amobeleza-mascavo-etl/.env` e troque o bloco do destino por:
+
+| Variável             | Valor                                                            |
+| -------------------- | ---------------------------------------------------------------- |
+| `TARGET_MODE`        | `production`                                                     |
+| `TARGET_DB_HOST`     | o mesmo valor do `REF_DB_HOST` deste `.env` (o banco da cliente) |
+| `TARGET_DB_PORT`     | `3306`                                                           |
+| `TARGET_DB_USER`     | `wicomm_etl`                                                     |
+| `TARGET_DB_PASSWORD` | a do gerenciador de senhas (criada em 27/11/2026)                |
+
+Depois, ainda na VPS:
+
+```bash
+cd ~/amobeleza-mascavo-etl && npm run etl -- sources        # "Destino das cargas: PRODUÇÃO da cliente (wicomm_etl)"
+npm run etl -- check-access                                   # "Destino: PRODUÇÃO (cliente) OK: servidor, usuário..."
+```
+
+O que o ETL confere no modo produção (se algo falhar, ele não grava nada):
+
+- no `.env`: porta e usuário iguais aos de `PRODUCTION_TARGET`; host nunca loopback; `root` recusado;
+- no servidor, antes de cada carga e do lock: `@@hostname` e `@@server_uuid` da produção, sessão cifrada (TLS 1.2+),
+  `CURRENT_USER()` = `wicomm_etl@<IP>` e `SHOW GRANTS` só com `SELECT/INSERT/UPDATE/DELETE` tabela por tabela.
+
+A conexão com o MySQL da cliente (destino e leitor da paridade) sempre pede TLS. O certificado do servidor é o padrão
+do MySQL e não é validado: a cifra protege contra quem escuta a rede, não contra quem se passa pelo servidor.
+
+No modo produção, a máscara de dado pessoal é desligada (o Power BI precisa do dado), `db:apply` é recusado e
+`--fixture` só roda com `--dry-run`.
+
+**Para voltar ao MySQL local:** `TARGET_MODE=local` e o bloco antigo (`127.0.0.1`, `3307`, `etl_local`).
+
+## 10. Serviço (depois da primeira carga em produção conferida)
 
 Modelo em `ops/systemd/amobeleza-mascavo-etl.service`. Antes de instalar, ajuste o caminho do Node no `ExecStart`:
 `which node` mostra a versão exata do nvm. Os logs ficam no journald (`journalctl -u amobeleza-mascavo-etl`).
