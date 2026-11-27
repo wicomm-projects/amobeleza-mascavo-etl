@@ -223,6 +223,22 @@ const toItemRows = (detail: tOrderDetail): tRow[] =>
 
 const logisticsOf = (detail: tOrderDetail) => detail.shippingData?.logisticsInfo ?? []
 
+/**
+ * delivery_window: a VTEX manda `{ startDateUtc, endDateUtc, price }` na entrega agendada. O ETL antigo gravava só o
+ * início da janela (`startDateUtc`, texto ISO), visto na paridade de 27/11/2026 (AMO-Q52). Sem janela, nulo.
+ */
+const toDeliveryWindow = (value: unknown): string | null => {
+	if (value === null || value === undefined) return null
+
+	if (typeof value === 'string') return toText(value)
+
+	if (typeof value !== 'object') return null
+
+	const start = (value as { startDateUtc?: unknown }).startDateUtc
+
+	return typeof start === 'string' ? toText(start) : null
+}
+
 /** sku_id: itemId da logística; sem ele, o SKU do item na mesma posição (itemIndex liga logística e item). */
 const toLogisticsInfoRows = (detail: tOrderDetail): tRow[] =>
 	logisticsOf(detail).map(info => ({
@@ -237,7 +253,7 @@ const toLogisticsInfoRows = (detail: tOrderDetail): tRow[] =>
 		price: toReais(info.price),
 		list_price: toReais(info.listPrice),
 		selling_price: toReais(info.sellingPrice),
-		delivery_window: toText(info.deliveryWindow),
+		delivery_window: toDeliveryWindow(info.deliveryWindow),
 		delivery_company: info.deliveryCompany ?? null,
 		delivery_channel: info.deliveryChannel ?? null,
 		address_id: info.addressId ?? null

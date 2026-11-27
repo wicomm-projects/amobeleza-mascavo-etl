@@ -136,6 +136,31 @@ describe('valores dos pedidos: só vtex_orders.total_value fica em centavos', ()
 		expect(sellerDe(2)).toBe(2)
 	})
 
+	it('delivery_window grava só o início da janela (startDateUtc), como o ETL antigo; sem janela, nulo', async () => {
+		const detail = await firstOf()
+		const [info] = detail.shippingData?.logisticsInfo ?? []
+
+		if (!info || !detail.shippingData) throw new Error('fixture sem logística')
+
+		const windowDe = (deliveryWindow: unknown) =>
+			toLogisticsInfoRows({
+				...detail,
+				shippingData: { ...detail.shippingData, logisticsInfo: [{ ...info, deliveryWindow }] }
+			})[0]?.delivery_window
+
+		// Formato da paridade de 27/11/2026: produção "2026-09-04T15:00:00+00:00"; a VTEX manda o objeto.
+		expect(
+			windowDe({
+				startDateUtc: '2026-09-04T15:00:00+00:00',
+				endDateUtc: '2026-09-04T16:00:59+00:00',
+				price: 0
+			})
+		).toBe('2026-09-04T15:00:00+00:00')
+		expect(windowDe(null)).toBeNull()
+		expect(windowDe(undefined)).toBeNull()
+		expect(windowDe({ price: 0 })).toBeNull()
+	})
+
 	it('logística e pagamentos em reais', async () => {
 		const detail = await firstOf()
 		const [logistics] = toLogisticsInfoRows(detail)

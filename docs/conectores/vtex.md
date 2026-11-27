@@ -127,7 +127,8 @@ Grafia das colunas exatamente como no dicionário (`docs/contrato/mascavo_etl.md
 - **`vtex_order_items`**: `items[]` em minúsculas (`uniqueId`→`uniqueid`, `productId`→`productid`...); `id`, `productid`
   e `seller` convertidos para inteiro; `additionalinfo` em JSON.
 - **`vtex_order_logistics_info` / `_delivery_ids`**: `shippingData.logisticsInfo[]` e `.deliveryIds[]`; `sku_id` =
-  `itemId` (sem ele, o SKU do item na mesma posição); `delivery_window` em JSON quando vem.
+  `itemId` (sem ele, o SKU do item na mesma posição); `delivery_window` só com o início da janela (`startDateUtc`), como o
+  ETL antigo (paridade de 27/11/2026, AMO-Q52).
 - **`vtex_order_shipping_data`**: `shippingData.address` (só tipo, bairro, CEP, cidade, UF, país; sem rua nem nome).
 - **`vtex_order_payment_transactions` / `_payments` / `_gift_cards`**: `paymentData.transactions[]`, `.payments[]` e
   `paymentData.giftCards[]`. Nenhum campo de cartão (titular, dígitos, validade) é lido.
@@ -252,7 +253,9 @@ O que a paridade mostrou e já foi corrigido no ETL novo:
   `payment_id` = `"0"`, como o ETL antigo;
 - `order_group` nulo quando a VTEX não manda (o Power BI faz `IFNULL(order_group, order_id)`);
 - `seller_name` (Amobeleza) com o nome do seller também na própria loja ("Amobeleza"), não nulo;
-- comparação de JSON pelo conteúdo (a coluna JSON do MySQL reordena as chaves).
+- comparação de JSON pelo conteúdo (a coluna JSON do MySQL reordena as chaves);
+- `delivery_window` (entrega agendada) com só o `startDateUtc`, e não o objeto em JSON: achado na última paridade
+  antes da virada (27/11/2026, amostra de 200; 1 de 632 linhas na Amobeleza).
 
 O que a paridade mostrou sobre o ETL antigo (diferenças que o ETL novo **não** reproduz):
 
