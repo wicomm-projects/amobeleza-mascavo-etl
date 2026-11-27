@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createChannelClassifier } from '../../src/connectors/ga4/de-para.js'
+import { createChannelClassifier, type tChannelTable } from '../../src/connectors/ga4/de-para.js'
 
 const input = {
 	trafego: [
@@ -111,5 +111,76 @@ describe('regra por mídia (referral)', () => {
 		expect(createChannelClassifier('vendas').classify('qualquer.site / referral', '').vehicle_channel_no_pay).toBe(
 			'Referral'
 		)
+	})
+})
+
+/**
+ * Origens novas desde 20/08/2026 (primeira carga do ETL novo, 27/11/2026), classificadas pela cliente a partir da
+ * sugestão por analogia com o histórico. Cada linha: tabela, origem / mídia, campanha, canal, tipo.
+ */
+const APPROVED_27_11: [tChannelTable, string, string, string, string][] = [
+	['trafego', 'wicomm / push', '20261125_wpp_beauty_friday', 'crm', 'não pago'],
+	['trafego', 'rd station / wpp', '20261125_wpush_beauty_friday', 'crm', 'não pago'],
+	['trafego', 'rdstation / whatsapp', '20260909_wppc_wpp_mascavo_day', 'crm', 'não pago'],
+	['trafego', 'pinterest / paidsocial', '626757307436', 'pinterest ads', 'pago'],
+	['trafego', 'tolstoy / feed_share', '(organic)', 'referral', 'não pago'],
+	['trafego', '', '', 'referral', 'não pago'],
+	['trafego', 'facebook / paid_social', '(referral)', 'facebook ads', 'pago'],
+	['trafego', 'reclameaqui / brandpage_contact_widget', 'site_visit', 'referral', 'não pago'],
+	['trafego', '--sanitized-- / --sanitized--', '--sanitized--', 'facebook ads', 'pago'],
+	['trafego', 'pinterest / social', 'influ-mascavobr', 'social orgânico', 'não pago'],
+	['trafego', 'claude.ai / ai-assistant', '(ai-assistant)', 'outros', 'não pago'],
+	['trafego', 'gemini / (not set)', '(not set)', 'pesquisa orgânica', 'não pago'],
+	['trafego', 'facebook= / cpc', 'cb_0360_mascavo_cons_wsc_fb-wsc_trafego', 'facebook ads', 'pago'],
+	['trafego', 'facebook / paid', '(not set)', 'facebook ads', 'pago'],
+	['trafego', 'koin / marketplace', 'mascavo', 'referral', 'não pago'],
+	['trafego', 'awin / affiliate', '(not set)', 'afiliado', 'pago'],
+	['vendas', 'groovinads / ads', 'CB_0335_Mascavo_CONV_CONV_grvin-conv_conversao', 'Groovin Ads', 'Pago'],
+	['vendas', 'wicomm / push', '20261125_WPP_BEAUTY_FRIDAY', 'CRM', 'Não pago'],
+	['vendas', 'rdstation / whatsapp', '20260909_WPPC_WPP_MASCAVO_DAY', 'CRM', 'Não pago'],
+	['vendas', 'RP / Social', 'Steal The Look', 'Social orgânico', 'Não pago'],
+	['vendas', 'RD Station / WPP', '20261125_WPUSH_BEAUTY_FRIDAY', 'CRM', 'Não pago'],
+	['vendas', '', '', 'Referral', 'Não pago'],
+	['vendas', 'RD Station / push_web', '20260812_WPPC_PUSH_WEB_LANCAMENTO_FACE_THE_DAY', 'CRM', 'Não pago']
+]
+
+describe('De/Para: origens novas aprovadas pela cliente em 27/11/2026', () => {
+	it.each(APPROVED_27_11)('%s: "%s" vira o canal aprovado', (table, source, campaign, channel, type) => {
+		expect(createChannelClassifier(table).classify(source, campaign)).toEqual({
+			vehicle_channel_no_pay: channel,
+			type
+		})
+	})
+
+	it('WhatsApp da RD vai para CRM também nas regras antigas, para não dividir o mesmo disparo em dois canais', () => {
+		expect(createChannelClassifier('trafego').classify('rd station / whatsapp', 'x').vehicle_channel_no_pay).toBe(
+			'crm'
+		)
+		expect(createChannelClassifier('trafego').classify('rd / whatsapp', 'x').vehicle_channel_no_pay).toBe('crm')
+		expect(createChannelClassifier('vendas').classify('RD Station / whatsapp', 'x').vehicle_channel_no_pay).toBe(
+			'CRM'
+		)
+		expect(createChannelClassifier('vendas').classify('rd / whatsapp', 'x').vehicle_channel_no_pay).toBe('CRM')
+	})
+
+	it('Groovin vira o canal novo "groovin ads / pago" também nas regras antigas do tráfego', () => {
+		for (const source of ['groovin / ads', 'groovinads / ads', 'groovinads / display']) {
+			expect(createChannelClassifier('trafego').classify(source, 'x')).toEqual({
+				vehicle_channel_no_pay: 'groovin ads',
+				type: 'pago'
+			})
+		}
+	})
+
+	it('nenhuma pendência sobra para as origens aprovadas', () => {
+		for (const table of ['trafego', 'vendas'] as const) {
+			const classifier = createChannelClassifier(table)
+
+			for (const [rowTable, source, campaign] of APPROVED_27_11) {
+				if (rowTable === table) classifier.classify(source, campaign)
+			}
+
+			expect(classifier.unmapped()).toEqual([])
+		}
 	})
 })

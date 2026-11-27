@@ -4,7 +4,11 @@
 		"tabelas": ["sheets_google_drive_trafego", "sheets_google_drive_vendas"],
 		"de": "2025-10-01",
 		"ate": "2026-08-19",
-		"gerado_em": "2026-11-25"
+		"gerado_em": "2026-11-25",
+		"ajuste_cliente": {
+			"data": "2026-11-27",
+			"o_que": "Origens novas desde 20/08/2026 classificadas pela cliente (sugestão por analogia com o histórico). WhatsApp da RD passou de outros para crm e Groovin de outros/não pago para o canal novo groovin ads/pago, também nas regras antigas. Origem \"\" = GA4 sem origem."
+		}
 	},
 	"trafego": [
 		{
@@ -479,18 +483,18 @@
 		},
 		{
 			"origem": "groovin / ads",
-			"vehicle_channel_no_pay": "outros",
-			"type": "não pago"
+			"vehicle_channel_no_pay": "groovin ads",
+			"type": "pago"
 		},
 		{
 			"origem": "groovinads / ads",
-			"vehicle_channel_no_pay": "outros",
-			"type": "não pago"
+			"vehicle_channel_no_pay": "groovin ads",
+			"type": "pago"
 		},
 		{
 			"origem": "groovinads / display",
-			"vehicle_channel_no_pay": "outros",
-			"type": "não pago"
+			"vehicle_channel_no_pay": "groovin ads",
+			"type": "pago"
 		},
 		{
 			"origem": "hdhdhd / (not set)",
@@ -789,7 +793,7 @@
 		},
 		{
 			"origem": "rd / whatsapp",
-			"vehicle_channel_no_pay": "outros",
+			"vehicle_channel_no_pay": "crm",
 			"type": "não pago"
 		},
 		{
@@ -814,7 +818,7 @@
 		},
 		{
 			"origem": "rd station / whatsapp",
-			"vehicle_channel_no_pay": "outros",
+			"vehicle_channel_no_pay": "crm",
 			"type": "não pago"
 		},
 		{
@@ -1066,6 +1070,86 @@
 			"origem": "youtube.com / referral",
 			"vehicle_channel_no_pay": "pesquisa orgânica",
 			"type": "não pago"
+		},
+		{
+			"origem": "wicomm / push",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rd station / wpp",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "rdstation / whatsapp",
+			"vehicle_channel_no_pay": "crm",
+			"type": "não pago"
+		},
+		{
+			"origem": "pinterest / paidsocial",
+			"vehicle_channel_no_pay": "pinterest ads",
+			"type": "pago"
+		},
+		{
+			"origem": "tolstoy / feed_share",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook / paid_social",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "reclameaqui / brandpage_contact_widget",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "--sanitized-- / --sanitized--",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "pinterest / social",
+			"vehicle_channel_no_pay": "social orgânico",
+			"type": "não pago"
+		},
+		{
+			"origem": "claude.ai / ai-assistant",
+			"vehicle_channel_no_pay": "outros",
+			"type": "não pago"
+		},
+		{
+			"origem": "gemini / (not set)",
+			"vehicle_channel_no_pay": "pesquisa orgânica",
+			"type": "não pago"
+		},
+		{
+			"origem": "facebook= / cpc",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "facebook / paid",
+			"vehicle_channel_no_pay": "facebook ads",
+			"type": "pago"
+		},
+		{
+			"origem": "koin / marketplace",
+			"vehicle_channel_no_pay": "referral",
+			"type": "não pago"
+		},
+		{
+			"origem": "awin / affiliate",
+			"vehicle_channel_no_pay": "afiliado",
+			"type": "pago"
 		}
 	],
 	"vendas": [
@@ -1461,7 +1545,7 @@
 		},
 		{
 			"origem": "rd / whatsapp",
-			"vehicle_channel_no_pay": "Outros",
+			"vehicle_channel_no_pay": "CRM",
 			"type": "Não pago"
 		},
 		{
@@ -1481,7 +1565,7 @@
 		},
 		{
 			"origem": "RD Station / whatsapp",
-			"vehicle_channel_no_pay": "Outros",
+			"vehicle_channel_no_pay": "CRM",
 			"type": "Não pago"
 		},
 		{
@@ -1587,6 +1671,41 @@
 		{
 			"origem": "youtube.com / referral",
 			"vehicle_channel_no_pay": "Pesquisa orgânica",
+			"type": "Não pago"
+		},
+		{
+			"origem": "groovinads / ads",
+			"vehicle_channel_no_pay": "Groovin Ads",
+			"type": "Pago"
+		},
+		{
+			"origem": "wicomm / push",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "rdstation / whatsapp",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RP / Social",
+			"vehicle_channel_no_pay": "Social orgânico",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / WPP",
+			"vehicle_channel_no_pay": "CRM",
+			"type": "Não pago"
+		},
+		{
+			"origem": "",
+			"vehicle_channel_no_pay": "Referral",
+			"type": "Não pago"
+		},
+		{
+			"origem": "RD Station / push_web",
+			"vehicle_channel_no_pay": "CRM",
 			"type": "Não pago"
 		}
 	]
