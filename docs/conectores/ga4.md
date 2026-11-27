@@ -137,6 +137,16 @@ planilhas. O Power BI se relaciona por esses textos, então eles precisam ser **
   "groovin ads" não existia no Power BI: se a página Canais usa alguma lista fixa de canais, ela precisa ganhar esse
   nome; e o canal aparece sem investimento (o custo da Groovin não entra no painel).
 - Origem `""` (o GA4 manda "origem / mídia" vazia) também aceita regra: `{ "origem": "", ... }`.
+- **Conferido no Power BI em 27/11/2026** (página CANAIS, depois do reprocessamento do GA4 desde 20/08 e da atualização
+  do modelo):
+    - o canal "(Em branco)" de 20/08 em diante sumiu (eram 2.808 sessões e R$ 38,5 mil);
+    - "groovin ads" aparece em "Pago", com R$ 32,3 mil de receita (as duas campanhas da Groovin);
+    - CRM ganhou os pushes e WhatsApps da Beauty Friday e do Mascavo Day, e "outros" perdeu os WhatsApps da RD;
+    - a receita por canal soma o total da página; julho (fora da janela reprocessada) ficou igual; os pedidos da Visão
+      Geral não mudaram.
+    - O gráfico de **sessões** por canal agrupa os canais por uma regra do próprio relatório (`canal_meta`) e mostra
+      grupos, não canais; "groovin ads" cai em "Outros" nessa regra. Ver os pontos 23 e 30 de
+      `docs/melhorias-propostas.md`. Não é do ETL: no banco, cada linha tem um canal só.
 - Formato: `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com `regra = { origem, campanha?,
 vehicle_channel_no_pay, type }` ou `{ midia, vehicle_channel_no_pay, type }`.
 - Origem / mídia sem regra grava as duas colunas nulas e aparece nas notas do resumo ("De/Para incompleto (tabela)").
