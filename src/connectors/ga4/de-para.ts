@@ -28,7 +28,8 @@ const channelFields = {
 }
 
 const sourceRuleSchema = z.object({
-	origem: z.string().trim().min(1),
+	// "" é uma origem de verdade: o GA4 às vezes manda "origem / mídia" vazia (gravada vazia na tabela).
+	origem: z.string().trim(),
 	campanha: z.string().trim().min(1).optional(),
 	...channelFields
 })

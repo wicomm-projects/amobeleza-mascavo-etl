@@ -125,8 +125,18 @@ planilhas. O Power BI se relaciona por esses textos, então eles precisam ser **
 - **Regra por mídia** (`{ "midia": "referral", ... }`): vale para qualquer origem com essa mídia sem regra própria. As
   493 origens de referral do tráfego viraram 1 regra geral (`referral` / `não pago`) e 59 exceções (buscadores, redes
   sociais, afiliados). Assim site novo de referral não vira pendência, e o arquivo não lista domínios que são
-  endereços internos registrados pelo GA4 (IPs, ambientes de teste da VTEX, sistemas de parceiros). Hoje: 212 regras
-  no tráfego e 104 nas vendas.
+  endereços internos registrados pelo GA4 (IPs, ambientes de teste da VTEX, sistemas de parceiros). Hoje: 228 regras
+  no tráfego e 111 nas vendas.
+- **Ajuste de 27/11/2026 (aprovado pela cliente):** a primeira carga do ETL novo trouxe 16 origens novas no tráfego e 7
+  nas vendas desde 20/08 (pushes e WhatsApps da Beauty Friday e do Mascavo Day, Pinterest pago, Groovin, Claude,
+  Gemini, Tolstoy, Koin e um anúncio da Meta com a origem mascarada como `--sanitized--`). Cada uma ganhou regra por
+  analogia com o histórico. Duas regras antigas mudaram para manter o mesmo disparo num canal só: **WhatsApp da RD**
+  (`rd station / whatsapp`, `rd / whatsapp`) passou de "outros" para **crm**, e **Groovin** (`groovin / ads`,
+  `groovinads / ads`, `groovinads / display`) passou de "outros / não pago" para o canal novo **groovin ads / pago**.
+  Vale para o que for gravado a partir de 20/08; o histórico anterior continua como o pipeline antigo gravou.
+  "groovin ads" não existia no Power BI: se a página Canais usa alguma lista fixa de canais, ela precisa ganhar esse
+  nome; e o canal aparece sem investimento (o custo da Groovin não entra no painel).
+- Origem `""` (o GA4 manda "origem / mídia" vazia) também aceita regra: `{ "origem": "", ... }`.
 - Formato: `{ leiame, fonte, trafego: regra[], vendas: regra[] }`, com `regra = { origem, campanha?,
 vehicle_channel_no_pay, type }` ou `{ midia, vehicle_channel_no_pay, type }`.
 - Origem / mídia sem regra grava as duas colunas nulas e aparece nas notas do resumo ("De/Para incompleto (tabela)").
