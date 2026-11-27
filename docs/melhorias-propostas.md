@@ -55,13 +55,14 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
 | 20  | Logs do Laravel (Telescope) podem guardar chaves e dado pessoal     | Segurança        | Alta       | Banco, a confirmar           |
 | 21  | Conexão com o MySQL sem cifra obrigatória, com certificado padrão   | Segurança        | Média      | Servidor e banco + 1         |
 | 22  | Consultas do ETL sem tempo limite                                   | Operação         | Baixa      | 1                            |
-| 23  | Canais do grupo CRM repetem as mesmas sessões                       | Power BI         | Alta       | Power BI                     |
+| 23  | Sessões por canal mostram grupos, não canais                        | Power BI         | Alta       | Power BI                     |
 | 24  | "Sessões por dispositivo" mostra o total em cada fatia              | Power BI         | Alta       | Power BI                     |
 | 25  | Tabela por região soma cerca de 20% menos que os estados            | Power BI         | Alta       | Power BI                     |
 | 26  | Investimento por canal só com afiliados desde 20/08                 | ETL (fase 4)     | Alta       | 1                            |
 | 27  | Tabela da página "diário" dá erro ao carregar                       | Power BI         | Média      | Power BI                     |
 | 28  | Produtos não fecham com a receita bruta; linha sem produto          | Power BI         | Baixa      | Power BI                     |
 | 29  | "Receita bruta + frete" não é a soma de "Receita bruta" e "Frete"   | Power BI         | Baixa      | Power BI                     |
+| 30  | Canal novo "groovin ads" cai em "Outros" no agrupamento do Power BI | Power BI         | Média      | Power BI                     |
 
 ## Prioridade alta
 
@@ -311,28 +312,37 @@ Prioridade baixa, operação.
   então não há dado duplicado nem gravação pela metade (a transação desfaz), só atraso no aviso.
 - **Proposta:** tempo limite por consulta no gravador (nível 1).
 
-### Pontos 23 a 29: o que a validação do Power BI da Mascavo mostrou (27/11/2026)
+### Pontos 23 a 30: o que a validação do Power BI da Mascavo mostrou (27/11/2026)
 
 Na virada da Mascavo, o relatório "Mascavo - B2C" foi lido duas vezes, só em modo de visualização: antes da carga do
 ETL novo (dados de 04/11) e depois (dados de 27/11). Os pontos 23 a 25 e 27 a 29 já estavam na leitura de antes e
 continuaram iguais na de depois, nos períodos que o ETL novo não regravou (julho e setembro). Ou seja, vêm do próprio
 relatório, não do ETL. O ponto 26 é uma etapa do ETL que ainda não existe.
 
-### 23. Canais do grupo CRM repetem as mesmas sessões
+### 23. Sessões por canal mostram grupos, não canais
 
-Prioridade alta, Power BI.
+Prioridade alta, Power BI. Causa confirmada no modelo do relatório (`Mascavo - B2C.pbit`, só leitura) em 27/11/2026.
 
-- **O que é:** na página CANAIS, os canais **crm, e-mail, e-mail orgânico, push, sms, whatsapp e yourviews** mostram
-  exatamente o mesmo número de sessões (24.093 cada em julho/2026; 72.489 cada de 20/08 a 27/11). A coluna "Share
-  Sessões" passa de 100%.
-- **Impacto:** as sessões desses canais estão infladas e o share por canal fica errado. O total de sessões do cartão
-  está certo; o erro é na divisão por canal.
-- **Causa provável:** uma relação muitos-para-muitos entre o tráfego e uma lista de canais colada no arquivo: esses
-  sete canais caem no mesmo grupo, e cada um recebe as sessões do grupo inteiro. Push, sms e whatsapp nem existem como
-  canal na tabela de tráfego (o De/Para histórico grava esses disparos como "crm").
-- **Proposta:** no Power BI, revisar a relação para cada canal receber só as próprias sessões (ou mostrar o grupo numa
-  linha só, "CRM"). Se a cliente quiser ver push, sms e WhatsApp separados, é uma mudança no De/Para do ETL (nível 1)
-  junto com o relatório.
+- **O que é:** na página CANAIS, o gráfico de sessões por canal não soma as sessões de cada canal. Três sintomas:
+    - os canais **crm, e-mail, e-mail orgânico, push, sms, whatsapp e yourviews** mostram o mesmo número (24.093 cada
+      em julho/2026; 74.905 cada de 20/08 a 27/11);
+    - o canal **"outros"** mostra muito mais que as próprias sessões (361.288 em julho);
+    - a soma dos canais passa do total (em julho, 1,35 milhão contra 845.720) e a coluna "Share Sessões" passa de 100%.
+- **Impacto:** as sessões por canal e o share estão errados. O total de sessões do cartão está certo, e a **receita**
+  por canal também (ela usa o canal exato, e a soma bate com o total).
+- **Causa:** o relatório cria uma coluna própria, `canal_meta`, que agrupa os canais por uma regra fixa escrita nas
+  consultas `trafego_ga4` e `canais` (crm, e-mail, push, whatsapp, sms, yourviews e toda origem com "rd" → "CRM";
+  `fb / paid` e `meta-ads` → "Facebook Ads"; `ads.tiktok.com / cpc` → "TikTok Ads"; o que não está na lista →
+  "Outros"). O tráfego se liga à tabela de canais por esse **grupo** (relação muitos-para-muitos
+  `trafego_ga4[canal_meta]` → `canais[canal_meta]`), e o gráfico mostra cada canal com as sessões de todos os grupos
+  em que ele aparece. Em julho, "outros" = Outros 58.480 + CRM 24.093 + TikTok Ads 16.149 + Facebook Ads 249.212 +
+  Pinterest Ads 13.354 = 361.288, porque no histórico o canal "outros" aparece junto de origens que a regra joga
+  nesses grupos.
+- **Também vem daí:** "yourviews" aparece duas vezes no filtro Canal (em "Pago" e em "não pago"), porque a tabela
+  `canais` junta as combinações do tráfego e das vendas sem tirar a duplicidade de tipo.
+- **Proposta:** ligar as sessões ao canal exato de cada linha (`trafego_ga4[vehicle]`), como a receita já faz, e
+  deixar o `canal_meta` só para a página de metas. Se a cliente quiser ver push, sms e WhatsApp separados, é uma
+  mudança no De/Para do ETL (nível 1) junto com o relatório.
 
 ### 24. "Sessões por dispositivo" mostra o total em cada fatia
 
@@ -403,6 +413,21 @@ Prioridade baixa, Power BI.
 - **Impacto:** confunde quem compara os cartões.
 - **Proposta:** explicar no Glossário do relatório de onde vem cada medida, ou renomear o cartão (ex.: "Total dos
   pedidos").
+
+### 30. Canal novo "groovin ads" cai em "Outros" no agrupamento do Power BI
+
+Prioridade média, Power BI. Encontrado em 27/11/2026, depois do ajuste do De/Para do GA4 aprovado pela cliente.
+
+- **O que é:** desde 20/08, o ETL grava a Groovin como **"groovin ads / pago"** (antes, "outros / não pago"). A receita
+  aparece certa na página CANAIS (R$ 32,3 mil de 20/08 a 27/11, dentro de "Pago"). Mas a regra `canal_meta` do
+  relatório (ponto 23) não conhece "groovin ads", então ele cai no grupo **"Outros"**: no gráfico de sessões, "groovin
+  ads" aparece até em julho, com as sessões do grupo "Outros" (58.480), sem ter tido tráfego naquele mês.
+- **Impacto:** sessões da Groovin erradas no gráfico de canais, e a Groovin contada como "Outros" na página de metas
+  por canal (que usa o mesmo `canal_meta`). Não há investimento da Groovin no painel (o custo não entra em nenhuma
+  tabela).
+- **Proposta:** nas consultas `trafego_ga4` e `canais` do relatório, acrescentar na regra do `canal_meta`, antes do
+  último `else "Outros"`: `else if [vehicle] = "groovin ads" then "Groovin Ads"`. Resolve só a Groovin; a correção
+  completa do gráfico é o ponto 23.
 
 ## O que o ETL novo grava diferente do antigo
 
