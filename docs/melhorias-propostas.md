@@ -55,6 +55,13 @@ Cada fase da integração acrescenta aqui o que encontrar. Os detalhes técnicos
 | 20  | Logs do Laravel (Telescope) podem guardar chaves e dado pessoal     | Segurança        | Alta       | Banco, a confirmar           |
 | 21  | Conexão com o MySQL sem cifra obrigatória, com certificado padrão   | Segurança        | Média      | Servidor e banco + 1         |
 | 22  | Consultas do ETL sem tempo limite                                   | Operação         | Baixa      | 1                            |
+| 23  | Canais do grupo CRM repetem as mesmas sessões                       | Power BI         | Alta       | Power BI                     |
+| 24  | "Sessões por dispositivo" mostra o total em cada fatia              | Power BI         | Alta       | Power BI                     |
+| 25  | Tabela por região soma cerca de 20% menos que os estados            | Power BI         | Alta       | Power BI                     |
+| 26  | Investimento por canal só com afiliados desde 20/08                 | ETL (fase 4)     | Alta       | 1                            |
+| 27  | Tabela da página "diário" dá erro ao carregar                       | Power BI         | Média      | Power BI                     |
+| 28  | Produtos não fecham com a receita bruta; linha sem produto          | Power BI         | Baixa      | Power BI                     |
+| 29  | "Receita bruta + frete" não é a soma de "Receita bruta" e "Frete"   | Power BI         | Baixa      | Power BI                     |
 
 ## Prioridade alta
 
@@ -303,6 +310,99 @@ Prioridade baixa, operação.
 - **Impacto:** a carga demora a falhar. O agendador não começa outra carga do mesmo job enquanto essa não termina,
   então não há dado duplicado nem gravação pela metade (a transação desfaz), só atraso no aviso.
 - **Proposta:** tempo limite por consulta no gravador (nível 1).
+
+### Pontos 23 a 29: o que a validação do Power BI da Mascavo mostrou (27/11/2026)
+
+Na virada da Mascavo, o relatório "Mascavo - B2C" foi lido duas vezes, só em modo de visualização: antes da carga do
+ETL novo (dados de 04/11) e depois (dados de 27/11). Os pontos 23 a 25 e 27 a 29 já estavam na leitura de antes e
+continuaram iguais na de depois, nos períodos que o ETL novo não regravou (julho e setembro). Ou seja, vêm do próprio
+relatório, não do ETL. O ponto 26 é uma etapa do ETL que ainda não existe.
+
+### 23. Canais do grupo CRM repetem as mesmas sessões
+
+Prioridade alta, Power BI.
+
+- **O que é:** na página CANAIS, os canais **crm, e-mail, e-mail orgânico, push, sms, whatsapp e yourviews** mostram
+  exatamente o mesmo número de sessões (24.093 cada em julho/2026; 72.489 cada de 20/08 a 27/11). A coluna "Share
+  Sessões" passa de 100%.
+- **Impacto:** as sessões desses canais estão infladas e o share por canal fica errado. O total de sessões do cartão
+  está certo; o erro é na divisão por canal.
+- **Causa provável:** uma relação muitos-para-muitos entre o tráfego e uma lista de canais colada no arquivo: esses
+  sete canais caem no mesmo grupo, e cada um recebe as sessões do grupo inteiro. Push, sms e whatsapp nem existem como
+  canal na tabela de tráfego (o De/Para histórico grava esses disparos como "crm").
+- **Proposta:** no Power BI, revisar a relação para cada canal receber só as próprias sessões (ou mostrar o grupo numa
+  linha só, "CRM"). Se a cliente quiser ver push, sms e WhatsApp separados, é uma mudança no De/Para do ETL (nível 1)
+  junto com o relatório.
+
+### 24. "Sessões por dispositivo" mostra o total em cada fatia
+
+Prioridade alta, Power BI.
+
+- **O que é:** na página CANAIS, o gráfico de sessões por dispositivo mostra cinco fatias (Desktop, Mobile, Tablet,
+  Smart TV e "(Em branco)"), cada uma com o total de sessões do período e 20% do gráfico. O gráfico de receita por
+  dispositivo, ao lado, está certo (Mobile cerca de 76% a 79%).
+- **Impacto:** o gráfico de sessões por dispositivo não informa nada.
+- **Causa provável:** a medida de sessões não está ligada à dimensão de dispositivo usada no gráfico (relação ausente
+  ou inativa), então cada fatia recebe o total.
+- **Proposta:** ligar a medida de sessões a `platform_device_category` da tabela de tráfego (que o ETL já grava).
+
+### 25. Tabela por região soma cerca de 20% menos que os estados
+
+Prioridade alta, Power BI.
+
+- **O que é:** na página REGIÃO, a soma do gráfico "Receita por estado" bate com a receita bruta da Visão Geral, mas a
+  tabela por região (Sudeste, Sul...) soma cerca de 80% disso (de 05/10 a 27/11: 5.747 pedidos na tabela contra 6.195
+  na Visão Geral). Antes da carga, a proporção era parecida (665 contra 730).
+- **Impacto:** quem olha a receita por região vê um total menor que o real.
+- **Causa provável:** a região vem de uma tabela colada no arquivo (`regiao`), que liga estado a região; os estados que
+  não estão escritos igual nessa lista ficam fora da tabela.
+- **Proposta:** conferir no Power BI quais estados de `pedidos_endereco` não acham região e completar a lista.
+
+### 26. Investimento por canal só com afiliados desde 20/08
+
+Prioridade alta, ETL (fase 4).
+
+- **O que é:** na página CANAIS, de 20/08 em diante, o investimento só mostra Rakuten e Awin. Google Ads, Facebook Ads
+  e TikTok Ads aparecem com sessões e receita, mas sem investimento.
+- **Impacto:** o retorno sobre investimento dos canais pagos fica impossível de calcular no painel desde 20/08.
+- **Causa:** o investimento de mídia vem das tabelas `sheets_looker_facebook`, `_tiktok`, `_pinterest` e
+  `sheets_google_gads`, que o pipeline antigo alimentava e que entram na fase 4 do ETL novo (contas de anúncio). Os
+  afiliados vêm de outra fonte.
+- **Proposta:** a fase 4 do ETL (nível 1), que depende do acesso às contas de anúncio.
+
+### 27. Tabela da página "diário" dá erro ao carregar
+
+Prioridade média, Power BI.
+
+- **O que é:** a tabela principal da página "diário" mostra "Erro ao buscar os dados para este visual — Failed to move
+  the data reader to the next result", antes e depois da carga do ETL novo. O gráfico da mesma página carrega.
+- **Impacto:** a visão dia a dia em tabela não abre; só dá para ler os números pelo gráfico ("Mostrar como uma
+  tabela").
+- **Causa provável:** o visual consulta uma fonte ao vivo (provavelmente o ERP no Azure) e a consulta falha ou passa
+  do tempo limite.
+- **Proposta:** ver no Power BI de qual fonte o visual lê e por que a consulta falha.
+
+### 28. Produtos não fecham com a receita bruta; linha sem produto
+
+Prioridade baixa, Power BI.
+
+- **O que é:** na página PRODUTOS, a soma das linhas fica cerca de 3% abaixo da receita bruta da Visão Geral, e há uma
+  linha sem categoria e sem nome de produto (R$ 99,90, 1 unidade), antes e depois da carga.
+- **Impacto:** uma parte pequena da receita não aparece por produto.
+- **Causa provável:** itens com SKU que não acha produto na consulta de produtos (ou que caem nas cerca de 30 trocas
+  fixas de ID de SKU coladas no relatório).
+- **Proposta:** listar no Power BI os SKUs de `pedidos_itens` sem produto e completar o mapeamento.
+
+### 29. "Receita bruta + frete" não é a soma de "Receita bruta" e "Frete"
+
+Prioridade baixa, Power BI.
+
+- **O que é:** na Visão Geral, "Receita bruta + frete" vem do total do pedido (`vtex_orders.total_value`, que já
+  desconta cupom e soma frete e taxas), e "Receita bruta" vem da soma dos itens. Por isso as duas não se somam com o
+  "Frete" (em setembro/2026, a diferença é de cerca de R$ 1,7 mil em R$ 2,15 milhões).
+- **Impacto:** confunde quem compara os cartões.
+- **Proposta:** explicar no Glossário do relatório de onde vem cada medida, ou renomear o cartão (ex.: "Total dos
+  pedidos").
 
 ## O que o ETL novo grava diferente do antigo
 
