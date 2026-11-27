@@ -1,4 +1,4 @@
-# Modelo de serviço para a VPS. Só instalar depois da liberação de produção (docs/adr/2026-11-18-travas-de-escrita.md).
+# Modelo de serviço para a VPS. Só instalar depois da primeira carga em produção conferida (docs/runbooks/vps.md, seção 10).
 # Copiar para /etc/systemd/system/ e ajustar o caminho do node (nvm) se necessário.
 [Unit]
 Description=ETL Amobeleza + Mascavo (status em 127.0.0.1:3000)

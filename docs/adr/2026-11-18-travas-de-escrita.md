@@ -1,7 +1,8 @@
 # Travas de escrita: só o Docker local até a liberação formal da produção
 
 - **Data:** 2026-11-18
-- **Status:** aceita
+- **Status:** aceita. A liberação da produção está em `2026-11-27-modo-producao-do-destino.md`; as travas daqui
+  continuam valendo no modo local.
 
 ## Contexto
 

@@ -1,12 +1,12 @@
 import mysql from 'mysql2/promise'
 
-import type { tDatabase } from '../../config/index.js'
+import type { tDatabase, tTargetMode } from '../../config/index.js'
 import { AppError, SafetyError, sanitizeDbError } from '../errors.js'
 
 import { affectedRowsOf, fromPool, type iConnectionSource, type iSqlConnection } from './connection.js'
 import { getTargetPool } from './pools.js'
 import { isSafeIdentifier } from './tables.js'
-import { assertLocalTarget, assertTargetDatabase, assertWritableTable } from './target-guard.js'
+import { assertTarget, assertTargetDatabase, assertWritableTable } from './target-guard.js'
 
 /**
  * Gravador do ETL. Reproduz como o ETL antigo da WPP gravava (Plano 2, "Como gravar em cada tabela"):
@@ -17,7 +17,7 @@ import { assertLocalTarget, assertTargetDatabase, assertWritableTable } from './
  *   é DDL, faz commit implícito e quebraria a transação.
  *
  * Tudo dentro de `transaction()`: se algo falha no meio, ROLLBACK e o Power BI continua vendo o dado anterior.
- * Antes de abrir a transação, `assertLocalTarget` confere o marcador do banco local.
+ * Antes de abrir a transação, `assertTarget` confere a identidade do destino do modo atual (Docker local ou produção).
  *
  * created_at / updated_at: preenchidos com o horário UTC da carga quando a linha não traz (convenção da WPP). No upsert,
  * created_at nunca é sobrescrito.
@@ -85,6 +85,8 @@ interface iWriterScope {
 interface iWriterDeps {
 	source?: iConnectionSource
 	now?: () => Date
+	/** Modo do destino. Sem valor, vale o TARGET_MODE do env. Injetado nos testes. */
+	mode?: tTargetMode
 }
 
 const INSERT_BATCH_SIZE = 500
@@ -357,8 +359,8 @@ const createWriter = (scope: iWriterScope, deps: iWriterDeps = {}): iWriter => {
 		const connection = await source.getConnection()
 
 		try {
-			// Trava principal: sem o marcador do Docker local, nem a transação é aberta.
-			await assertLocalTarget(connection)
+			// Trava principal: sem a identidade do destino do modo (Docker local ou produção), nem a transação é aberta.
+			await assertTarget(connection, deps.mode)
 			await connection.query('START TRANSACTION')
 
 			try {

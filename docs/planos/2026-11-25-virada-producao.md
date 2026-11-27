@@ -9,10 +9,10 @@ Pergunta AMO-Q40 (25/11/2026). Este é o roteiro para o ETL novo começar a grav
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Paridade com a produção                | OK: VTEX das duas marcas (PR #15), AnyMarket (#16) e GA4 da Mascavo (#18)                            |
 | Autorização da cliente                 | **Recebida pelo WhatsApp**, segundo o Matheus em 25/11/2026. Guardar um print ou exportar a conversa |
-| VPS                                    | Pendente: seguir `docs/runbooks/vps.md`                                                              |
-| Usuário MySQL `wicomm_etl`             | Pendente: `ops/mysql/usuario-wicomm-etl.sql` (passo 2)                                               |
+| VPS                                    | Montada (`docs/runbooks/vps.md`); primeira carga real no MySQL local dela em 27/11/2026              |
+| Usuário MySQL `wicomm_etl`             | **Criado em 27/11/2026** pelo Matheus, a pedido da cliente (43 comandos, login testado)              |
 | Backup das tabelas                     | Na véspera (passo 4)                                                                                 |
-| PR de liberação do destino de produção | A escrever (passo 3), com revisão por agente                                                         |
+| PR de liberação do destino de produção | Em revisão: `docs/planos/2026-11-27-liberacao-destino-producao.md` (passo 3)                         |
 
 A mensagem de WhatsApp é a autorização por escrito que o `CLAUDE.md` pede. Por isso essa regra não muda.
 
@@ -70,8 +70,8 @@ qualquer tabela fora do mapa.
 
 2. Trocar `<IP_DA_VPS>` (o mesmo IP do `wicomm_leitura`) e `<SENHA>` no script, e rodar como administrador.
 3. Conferir com `SHOW GRANTS FOR 'wicomm_etl'@'<IP_DA_VPS>';`. Tem de listar só `USAGE` e os 42 GRANTs.
-4. Na VPS, preencher o `.env`: `TARGET_DB_HOST`/`TARGET_DB_PORT` do banco da cliente, `TARGET_DB_USER=wicomm_etl` e
-   `TARGET_DB_PASSWORD`. A senha só existe nesse `.env` e com o administrador.
+4. Na VPS, preencher o `.env` só depois do merge do PR de liberação e do backup (passo 4): `docs/runbooks/vps.md`,
+   seção "Modo produção". A senha só existe nesse `.env` e no gerenciador de senhas.
 
 **Para desfazer:** `DROP USER 'wicomm_etl'@'<IP_DA_VPS>';`.
 

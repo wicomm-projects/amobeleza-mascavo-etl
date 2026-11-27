@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import mysql from 'mysql2/promise'
 
-import type { tDatabase } from '../../config/index.js'
+import { getTargetMode, type tDatabase, type tTargetMode } from '../../config/index.js'
 import { AppError, SafetyError } from '../errors.js'
 
 import { fromPool, type iConnectionSource } from './connection.js'
@@ -71,8 +71,14 @@ const parseSchemaFile = (content: string, table: string): string => {
 
 const applySchemas = async (
 	files: iSchemaFile[],
-	source: iConnectionSource = fromPool(getTargetPool)
+	source: iConnectionSource = fromPool(getTargetPool),
+	mode: tTargetMode = getTargetMode()
 ): Promise<string[]> => {
+	// db:apply apaga e recria tabelas: no modo produção nem a conexão é aberta.
+	if (mode === 'production') {
+		throw new SafetyError('db:apply nunca roda no modo produção: ele apaga e recria tabelas. Só no Docker local.')
+	}
+
 	const connection = await source.getConnection()
 	const applied: string[] = []
 

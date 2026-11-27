@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseEnv } from '../../src/config/env.js'
+import { PRODUCTION_TARGET } from '../../src/config/production-target.js'
 
 describe('env: travas de configuração', () => {
 	it('aceita env vazio: todas as fontes ficam aguardando chave', () => {
@@ -47,5 +48,60 @@ describe('env: travas de configuração', () => {
 
 	it('recusa ID de propriedade GA4 não numérico', () => {
 		expect(() => parseEnv({ GA4_MASCAVO_PROPERTY_ID: 'G-ABC123' })).toThrow(/numérico/)
+	})
+})
+
+/** Endereço de documentação (RFC 5737): o host real da produção só existe no .env da VPS. */
+const CLIENT_HOST = '203.0.113.20'
+
+describe('env: modo do destino (TARGET_MODE)', () => {
+	const production = {
+		TARGET_MODE: 'production',
+		TARGET_DB_HOST: CLIENT_HOST,
+		TARGET_DB_PORT: String(PRODUCTION_TARGET.port),
+		TARGET_DB_USER: PRODUCTION_TARGET.user,
+		TARGET_DB_PASSWORD: 'x'
+	}
+
+	it('sem TARGET_MODE, o modo é local', () => {
+		expect(parseEnv({}).TARGET_MODE).toBe('local')
+	})
+
+	it('recusa valor desconhecido em TARGET_MODE (erro de digitação não vira produção nem passa calado)', () => {
+		expect(() => parseEnv({ TARGET_MODE: 'producao' })).toThrow(/TARGET_MODE/)
+	})
+
+	it('no modo local, o host da produção continua recusado', () => {
+		expect(() => parseEnv({ ...production, TARGET_MODE: 'local' })).toThrow(/MySQL local/)
+	})
+
+	it('aceita o modo produção com o host do .env e porta e usuário da produção', () => {
+		const env = parseEnv(production)
+
+		expect(env.TARGET_MODE).toBe('production')
+		expect(env.TARGET_DB_HOST).toBe(CLIENT_HOST)
+	})
+
+	it.each(['127.0.0.1', 'localhost', '::1'])(
+		'no modo produção, recusa loopback (túnel do computador do dev): %s',
+		host => {
+			expect(() => parseEnv({ ...production, TARGET_DB_HOST: host })).toThrow(/nunca loopback/)
+		}
+	)
+
+	it('no modo produção, recusa porta diferente', () => {
+		expect(() => parseEnv({ ...production, TARGET_DB_PORT: '3307' })).toThrow(/TARGET_DB_PORT/)
+	})
+
+	it.each(['dbeaver', 'wicomm_leitura', 'etl_local'])('no modo produção, recusa o usuário %s', user => {
+		expect(() => parseEnv({ ...production, TARGET_DB_USER: user })).toThrow(/wicomm_etl/)
+	})
+
+	it('no modo produção, o root continua recusado', () => {
+		expect(() => parseEnv({ ...production, TARGET_DB_USER: 'root' })).toThrow(/root nunca/)
+	})
+
+	it('no modo produção, exige usuário e senha', () => {
+		expect(() => parseEnv({ TARGET_MODE: 'production', TARGET_DB_HOST: CLIENT_HOST })).toThrow(/TARGET_DB_USER/)
 	})
 })

@@ -5,10 +5,10 @@ import { NotConfiguredError } from '../errors.js'
 
 /**
  * Dois pools separados, de propósito:
- * - target: banco de DESTINO das cargas. Nesta etapa só o MySQL local (o env recusa outro host e o writer confere o
- *   marcador local antes de gravar).
- * - ref: MySQL da CLIENTE, só para leitura (schema:pull e paridade). Só é usado pelo ref-reader, que abre transação
- *   READ ONLY e recusa SQL que não seja SELECT/SHOW.
+ * - target: banco de DESTINO das cargas. MySQL local por padrão; no TARGET_MODE=production, o banco da cliente, com TLS.
+ *   O env só aceita o host do modo e o target-guard confere a identidade do destino antes de gravar.
+ * - ref: MySQL da CLIENTE, só para leitura (schema:pull e paridade), com TLS. Só é usado pelo ref-reader, que abre
+ *   transação READ ONLY e recusa SQL que não seja SELECT/SHOW.
  *
  * `timezone: 'Z'` faz o mysql2 converter Date em UTC — as datas da VTEX ficam em UTC no banco (o Power BI subtrai 3 h).
  * `multipleStatements: false` impede dois comandos numa string só.
@@ -19,6 +19,16 @@ let refPool: Pool | null = null
 
 const POOL_CONNECTION_LIMIT = 4
 const CONNECT_TIMEOUT_MS = 10_000
+
+/**
+ * TLS com o MySQL da cliente (destino no modo produção e leitor da paridade): a conexão sai da VPS pela internet e leva
+ * dado pessoal. Se o servidor não aceitar TLS, o mysql2 recusa conectar.
+ *
+ * O servidor usa o certificado padrão do MySQL (`server-cert.pem`, autoassinado, sem o IP no certificado), então o
+ * certificado não é validado: a cifra protege contra quem só escuta a rede, não contra quem se passa pelo servidor. Quando
+ * a cliente tiver um certificado próprio, passar o CA aqui e ligar `rejectUnauthorized` (AMO-Q51, 27/11/2026).
+ */
+const CLIENT_DB_TLS = { rejectUnauthorized: false, minVersion: 'TLSv1.2' } as const
 
 const getTargetPool = (): Pool => {
 	if (targetPool) return targetPool
@@ -41,7 +51,8 @@ const getTargetPool = (): Pool => {
 		timezone: 'Z',
 		charset: 'utf8mb4',
 		multipleStatements: false,
-		dateStrings: false
+		dateStrings: false,
+		...(env.TARGET_MODE === 'production' ? { ssl: CLIENT_DB_TLS } : {})
 	})
 
 	return targetPool
@@ -75,7 +86,8 @@ const getRefPool = (): Pool => {
 		charset: 'utf8mb4',
 		multipleStatements: false,
 		// Strings em vez de Date: a paridade compara o valor exatamente como está gravado.
-		dateStrings: true
+		dateStrings: true,
+		ssl: CLIENT_DB_TLS
 	})
 
 	return refPool
