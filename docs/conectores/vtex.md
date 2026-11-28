@@ -61,15 +61,17 @@ doc — conferir ao criar a chave. Nenhum recurso de escrita.
    7 casas decimais e uma fresta de 1 ms perderia pedido); senão lê as páginas 2..N (no máximo 30). Pedido repetido
    entre páginas ou metades entra uma vez. Mais de 3.000 pedidos em menos de 1 minuto é tratado como filtro quebrado e
    a carga falha.
-3. **O que mudou** (`stored.ts`): lê no banco de destino (Docker local, conexão protegida do núcleo) o `last_change` de
-   `vtex_order_details` dos pedidos listados. Busca o detalhe só de quem não tem detalhe gravado, vem sem `lastChange`
-   (ou ilegível) ou tem `lastChange` **mais novo** que o gravado (comparado em UTC, ao segundo). Lista com data **mais
-   antiga** que a gravada não é mudança: a lista do OMS vem de um índice de busca que fica atrás do detalhe. Comparando
-   por igualdade, a primeira noite do agendador na VPS (27/11/2026) buscava de novo cerca de 75% dos pedidos da janela
-   a cada 30 minutos, sem mudança. O log "Pedidos listados" traz a contagem por situação (`states`: novo, sem
-   lastChange, mudou, igual, lista mais antiga). A base é `vtex_order_details`, não `vtex_orders`: um detalhe que falhou
-   numa carga é buscado de novo na próxima. Se a maioria dos pedidos vier sem `lastChange`, a carga avisa (log e nota):
-   nesse caso o detalhe de todos é buscado a cada 30 min.
+3. **O que mudou** (`stored.ts`): lê no banco de destino (conexão protegida do núcleo) o `last_change` de
+   `vtex_order_details` (diz se o pedido já tem detalhe) e de `vtex_orders` (a data da **lista** gravada na carga
+   anterior). Busca o detalhe só de quem não tem detalhe gravado, vem sem `lastChange` (ou ilegível), não tem linha em
+   `vtex_orders`, ou tem a data da lista **diferente** da gravada (comparado em UTC, ao segundo). Compara **lista com
+   lista**, não lista com detalhe: medido na produção em 28/11/2026, a lista do OMS registra a alteração de 1 a 46
+   segundos depois do detalhe (3.462 de 5.130 pedidos). Comparando lista com detalhe, a primeira noite do agendador na
+   VPS buscava de novo cerca de 75% da janela a cada 30 minutos, sem mudança. Pedido com detalhe que falhou (ou veio fora
+   do formato) **não tem `vtex_orders` regravado** naquela carga: a data antiga da lista continua lá e ele é buscado de
+   novo na próxima. O log "Pedidos listados" traz a contagem por situação (`states`: novo, sem lastChange, sem lista
+   gravada, mudou, igual). Se a maioria dos pedidos vier sem `lastChange`, a carga avisa (log e nota): nesse caso o
+   detalhe de todos é buscado a cada 30 min.
 4. **Detalhes** em paralelo (`HTTP_CONCURRENCY`). **Isolamento por pedido:** detalhe que falha (rede, 5xx, resposta
    fora do schema) ou que não cabe nas colunas (coluna NOT NULL vazia, `seller` não numérico) fica de fora desta carga,
    com o ID nas notas do resumo, e volta na próxima; o mesmo vale para um pedido da lista. Assim um pedido ruim não

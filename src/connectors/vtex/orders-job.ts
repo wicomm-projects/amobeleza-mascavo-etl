@@ -10,7 +10,7 @@ import { loadOrdersFixture } from './fixtures.js'
 import { listOrdersInWindow } from './orders-window.js'
 import { maskPersonalData } from './personal-data.js'
 import type { tListOrder, tOrderDetail } from './schemas.js'
-import { readStoredItemOwners, readStoredLastChange, readStoredSellerNames } from './stored.js'
+import { type iStoredLastChange, readStoredItemOwners, readStoredLastChange, readStoredSellerNames } from './stored.js'
 import { ORDER_CHILD_TABLES, ORDER_TABLES, hasSellerName, type tOrderChildTable } from './tables.js'
 import { type iDetailContext, type iDetailRows, sellerNameOf, toDetailRows, toOrderRow } from './transform-orders.js'
 import { saoPauloWallClock, toComparableUtc } from './values.js'
@@ -50,6 +50,8 @@ interface iFetchedOrders {
 	hostnameFallback: string | null
 	/** seller_name já gravado em vtex_orders (só amobeleza_etl): vale para os pedidos que não mudaram. */
 	storedSellerNames: Map<string, string | null>
+	/** Pedidos cujo detalhe falhou: não têm vtex_orders regravado, para a próxima carga buscá-los de novo. */
+	retryIds: Set<string>
 	notes: string[]
 }
 
@@ -71,53 +73,61 @@ const listNote = (label: string, ids: string[]): string => {
 }
 
 /**
- * Situação de cada pedido da lista frente ao lastChange gravado (o do detalhe, em segundos UTC):
- * - `novo`: sem detalhe gravado;
+ * Situação de cada pedido da lista frente ao gravado:
+ * - `novo`: sem detalhe gravado (vtex_order_details);
  * - `sem lastChange`: a lista não traz a data, ou traz ilegível;
- * - `mudou`: a lista tem data mais nova que a gravada;
- * - `igual`: mesmo segundo;
- * - `lista mais antiga`: a lista do OMS vem de um índice de busca que fica atrás do detalhe. O detalhe gravado já é mais
- *   novo que o que a lista diz, então não há o que buscar. Medido na VPS em 27/11/2026: comparando por igualdade, cerca
- *   de 75% dos pedidos da janela eram buscados de novo a cada 30 minutos sem terem mudado.
+ * - `sem lista gravada`: tem detalhe, mas não tem linha em vtex_orders (ex.: pedido que o ETL antigo perdeu);
+ * - `igual`: a data da lista é a mesma da lista gravada na carga anterior (vtex_orders.last_change);
+ * - `mudou`: a data da lista é outra.
+ *
+ * Compara lista com lista, não lista com detalhe: medido na produção em 28/11/2026, a lista do OMS registra a alteração
+ * de 1 a 46 segundos depois do detalhe (3.462 de 5.130 pedidos), então lista ≠ detalhe quase sempre e, comparando com o
+ * detalhe, cerca de 75% da janela era buscada de novo a cada 30 minutos sem ter mudado.
  */
-type tChangeState = 'novo' | 'sem lastChange' | 'mudou' | 'igual' | 'lista mais antiga'
+type tChangeState = 'novo' | 'sem lastChange' | 'sem lista gravada' | 'mudou' | 'igual'
 
-const CHANGED_STATES: ReadonlySet<tChangeState> = new Set(['novo', 'sem lastChange', 'mudou'])
+const CHANGED_STATES: ReadonlySet<tChangeState> = new Set(['novo', 'sem lastChange', 'sem lista gravada', 'mudou'])
 
-const classifyChange = (order: tListOrder, stored: ReadonlyMap<string, string>): tChangeState => {
-	const storedText = stored.get(order.orderId)
+const classifyChange = (order: tListOrder, stored: iStoredLastChange): tChangeState => {
+	if (!stored.detail.has(order.orderId)) return 'novo'
 
-	if (storedText === undefined) return 'novo'
+	let listed: string | null
 
 	try {
-		const listed = toComparableUtc(order.lastChange)
-
-		if (listed === null) return 'sem lastChange'
-
-		// Os dois lados em "AAAA-MM-DD HH:MM:SS" UTC, de largura fixa: a ordem do texto é a ordem do tempo.
-		if (listed === storedText) return 'igual'
-
-		return listed > storedText ? 'mudou' : 'lista mais antiga'
+		listed = toComparableUtc(order.lastChange)
 	} catch {
 		return 'sem lastChange'
 	}
+
+	if (listed === null) return 'sem lastChange'
+
+	const storedList = stored.list.get(order.orderId)
+
+	if (storedList === undefined) return 'sem lista gravada'
+
+	return listed === storedList ? 'igual' : 'mudou'
 }
 
-/** Busca o detalhe de novo só quando é novo, sem data na lista ou com data mais nova que a gravada. */
-const hasChanged = (order: tListOrder, stored: ReadonlyMap<string, string>): boolean =>
+/** Busca o detalhe de novo só quando é novo, sem data na lista, sem linha em vtex_orders ou com a data da lista mudada. */
+const hasChanged = (order: tListOrder, stored: iStoredLastChange): boolean =>
 	CHANGED_STATES.has(classifyChange(order, stored))
 
+/**
+ * Pedidos da lista que têm vtex_orders regravado nesta carga: todos, menos os que precisam ser buscados de novo (detalhe
+ * que falhou ou veio fora do formato). Eles ficam com a linha antiga, e a data antiga da lista faz a próxima carga
+ * buscá-los de novo.
+ */
+const listedToWrite = (listed: readonly tListOrder[], retryIds: ReadonlySet<string>): tListOrder[] =>
+	listed.filter(order => !retryIds.has(order.orderId))
+
 /** Contagem por situação, para o log: mostra se a regra está deixando de buscar o que não mudou. */
-const countChangeStates = (
-	orders: readonly tListOrder[],
-	stored: ReadonlyMap<string, string>
-): Record<tChangeState, number> => {
+const countChangeStates = (orders: readonly tListOrder[], stored: iStoredLastChange): Record<tChangeState, number> => {
 	const counts: Record<tChangeState, number> = {
 		'novo': 0,
 		'sem lastChange': 0,
+		'sem lista gravada': 0,
 		'mudou': 0,
-		'igual': 0,
-		'lista mais antiga': 0
+		'igual': 0
 	}
 
 	for (const order of orders) counts[classifyChange(order, stored)] += 1
@@ -133,7 +143,9 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 	const listedIds = listed.map(order => order.orderId)
 	// Dry-run não abre conexão: sem o gravado, tudo conta como mudado.
 	const readDatabase = !ctx.options.dryRun
-	const stored = readDatabase ? await readStoredLastChange(ctx.database, listedIds) : new Map<string, string>()
+	const stored: iStoredLastChange = readDatabase
+		? await readStoredLastChange(ctx.database, listedIds)
+		: { detail: new Map(), list: new Map() }
 	const storedSellerNames =
 		readDatabase && hasSellerName(ctx.database)
 			? await readStoredSellerNames(ctx.database, listedIds)
@@ -203,7 +215,14 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 
 	if (failedIds.length > 0) notes.push(listNote('detalhe(s) com falha (de novo na próxima carga)', failedIds))
 
-	return { listed, details, hostnameFallback: accountOf(brand) ?? null, storedSellerNames, notes }
+	return {
+		listed,
+		details,
+		hostnameFallback: accountOf(brand) ?? null,
+		storedSellerNames,
+		retryIds: new Set(failedIds),
+		notes
+	}
 }
 
 const fetchFromFixture = async (file: string): Promise<iFetchedOrders> => {
@@ -214,6 +233,7 @@ const fetchFromFixture = async (file: string): Promise<iFetchedOrders> => {
 		details: fixture.orders,
 		hostnameFallback: fixture.account,
 		storedSellerNames: new Map(),
+		retryIds: new Set(),
 		notes: [`fixture ${file}: ${fixture.list.list.length} pedido(s) na lista, ${fixture.orders.length} detalhe(s)`]
 	}
 }
@@ -261,6 +281,8 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const orderIds: string[] = []
 	const transformed: { detail: tOrderDetail; rows: iDetailRows }[] = []
 	const invalidIds: string[] = []
+	// Detalhe que falhou na API ou veio fora do formato: vtex_orders fica com a linha antiga até o detalhe vir.
+	const retryIds = new Set(fetched.retryIds)
 	const withSellerName = hasSellerName(ctx.database)
 	// seller_name: o do detalhe, quando veio nesta carga; senão, o já gravado.
 	const sellerNames = new Map(fetched.storedSellerNames)
@@ -276,6 +298,7 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 			sellerNames.set(detail.orderId, sellerNameOf(detail))
 		} catch (err) {
 			invalidIds.push(detail.orderId)
+			retryIds.add(detail.orderId)
 			ctx.logger.warn(
 				{ orderId: detail.orderId, reason: errorMessage(err) },
 				'Pedido fora do formato das colunas'
@@ -283,7 +306,7 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 		}
 	}
 
-	for (const order of fetched.listed) {
+	for (const order of listedToWrite(fetched.listed, retryIds)) {
 		try {
 			const row = toOrderRow(order, fetched.hostnameFallback)
 
@@ -362,5 +385,5 @@ const ordersJob: iJob = {
 	run
 }
 
-export { DEFAULT_WINDOW_DAYS, classifyChange, countChangeStates, hasChanged, ordersJob }
+export { DEFAULT_WINDOW_DAYS, classifyChange, countChangeStates, hasChanged, listedToWrite, ordersJob }
 export type { tChangeState }

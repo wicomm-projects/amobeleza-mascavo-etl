@@ -9,9 +9,9 @@ import { toComparableUtc } from './values.js'
  * Leituras no banco de DESTINO (Docker local, pela conexão protegida do núcleo), por chave, em lotes. Só SELECT; nunca
  * em dry-run.
  *
- * - `readStoredLastChange`: last_change gravado em vtex_order_details, para buscar o detalhe só do que mudou. A base é
- *   o detalhe (não vtex_orders): ele só é gravado quando o detalhe veio, então um detalhe que falhou numa carga é
- *   buscado de novo na próxima.
+ * - `readStoredLastChange`: last_change gravado em vtex_order_details (diz se o pedido já tem detalhe) e em vtex_orders
+ *   (a data da LISTA da carga anterior). Busca o detalhe de novo quando a data da lista muda. Pedido com detalhe que
+ *   falhou não tem vtex_orders regravado, então a data antiga continua lá e ele é buscado de novo na próxima carga.
  * - `readStoredSellerNames`: seller_name gravado em vtex_orders (só amobeleza_etl), para manter o valor dos pedidos que
  *   não mudaram — vtex_orders é regravada inteira a cada carga, e o seller vem do detalhe.
  * - `readStoredItemOwners`: de qual pedido é cada uniqueid já gravado em vtex_order_items, para contar item que muda de
@@ -23,6 +23,7 @@ const SELECT_BATCH_SIZE = 1000
 /** Tabela, chave e coluna entram no SQL: só estes trios, fixos no código. */
 const READABLE = {
 	lastChange: { table: ORDER_TABLES.details, key: 'order_id', column: 'last_change' },
+	listLastChange: { table: ORDER_TABLES.orders, key: 'order_id', column: 'last_change' },
 	sellerName: { table: ORDER_TABLES.orders, key: 'order_id', column: 'seller_name' },
 	itemOwner: { table: ORDER_TABLES.items, key: 'uniqueid', column: 'order_id' }
 } as const
@@ -74,22 +75,34 @@ const selectByKeys = async (
 	return rows
 }
 
-/** order_id → last_change gravado, em "AAAA-MM-DD HH:MM:SS" UTC. Pedido sem detalhe gravado não entra no mapa. */
+interface iStoredLastChange {
+	/** last_change de vtex_order_details: quem não está aqui não tem detalhe gravado. */
+	detail: Map<string, string>
+	/** last_change de vtex_orders: a data da lista gravada na carga anterior. */
+	list: Map<string, string>
+}
+
+const lastChangeMap = (rows: iKeyValue[]): Map<string, string> => {
+	const map = new Map<string, string>()
+
+	for (const row of rows) {
+		const lastChange = toComparableUtc(row.value as Date | string | null)
+
+		if (lastChange) map.set(row.key, lastChange)
+	}
+
+	return map
+}
+
+/** order_id → last_change gravado (detalhe e lista), em "AAAA-MM-DD HH:MM:SS" UTC. Pedido sem linha não entra no mapa. */
 const readStoredLastChange = async (
 	database: tDatabase,
 	orderIds: readonly string[],
 	source: iConnectionSource = guardedTargetSource()
-): Promise<Map<string, string>> => {
-	const stored = new Map<string, string>()
-
-	for (const row of await selectByKeys(database, READABLE.lastChange, orderIds, source)) {
-		const lastChange = toComparableUtc(row.value as Date | string | null)
-
-		if (lastChange) stored.set(row.key, lastChange)
-	}
-
-	return stored
-}
+): Promise<iStoredLastChange> => ({
+	detail: lastChangeMap(await selectByKeys(database, READABLE.lastChange, orderIds, source)),
+	list: lastChangeMap(await selectByKeys(database, READABLE.listLastChange, orderIds, source))
+})
 
 /** order_id → seller_name gravado (nulo incluído: "a própria loja"). Pedido ausente não entra no mapa. */
 const readStoredSellerNames = async (
@@ -122,3 +135,4 @@ const readStoredItemOwners = async (
 }
 
 export { readStoredItemOwners, readStoredLastChange, readStoredSellerNames }
+export type { iStoredLastChange }
