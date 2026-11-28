@@ -1,3 +1,4 @@
+import { DATABASES, type tDatabase } from './databases.js'
 import { getEnv, type tEnv } from './env.js'
 
 /**
@@ -8,10 +9,6 @@ import { getEnv, type tEnv } from './env.js'
 const BRANDS = ['mascavo', 'amobeleza'] as const
 
 type tBrand = (typeof BRANDS)[number]
-
-const DATABASES = ['mascavo_etl', 'amobeleza_etl'] as const
-
-type tDatabase = (typeof DATABASES)[number]
 
 interface iVtexCredentials {
 	account: string

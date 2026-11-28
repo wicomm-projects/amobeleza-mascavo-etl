@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { DATABASES } from './databases.js'
 import { PRODUCTION_TARGET } from './production-target.js'
 
 /**
@@ -133,6 +134,24 @@ const envSchema = z
 		// conferidos por modo no superRefine (checkTargetMode).
 		TARGET_MODE: z.enum(TARGET_MODES, { error: 'TARGET_MODE aceita só local ou production.' }).default('local'),
 		TARGET_DB_HOST: z.string().trim().default('127.0.0.1'),
+		// Bancos em que o ETL pode gravar, separados por vírgula. Sem a variável, os dois. Na virada só da Mascavo, a VPS usa
+		// TARGET_DATABASES=mascavo_etl: o agendador não agenda os jobs da Amobeleza nem o AnyMarket (que grava em
+		// amobeleza_etl), e o runner recusa gravar neles (dry-run continua livre).
+		TARGET_DATABASES: z
+			.string()
+			.trim()
+			.default(DATABASES.join(','))
+			.transform(value =>
+				value
+					.split(',')
+					.map(item => item.trim())
+					.filter(item => item !== '')
+			)
+			.pipe(
+				z
+					.array(z.enum(DATABASES, { error: `TARGET_DATABASES aceita só ${DATABASES.join(' e ')}.` }))
+					.min(1, 'TARGET_DATABASES vazio: informe ao menos um banco (ou apague a variável para os dois).')
+			),
 		TARGET_DB_PORT: z.coerce.number().int().positive().default(3307),
 		TARGET_DB_USER: dbUser,
 		TARGET_DB_PASSWORD: optionalText,

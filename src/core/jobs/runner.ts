@@ -1,4 +1,4 @@
-import { getLogger, getTargetMode, type tBrand, type tTargetMode } from '../../config/index.js'
+import { getEnv, getLogger, getTargetMode, type tBrand, type tDatabase, type tTargetMode } from '../../config/index.js'
 import { createWriter } from '../db/index.js'
 import { AppError, SafetyError } from '../errors.js'
 
@@ -35,9 +35,26 @@ const assertRunOptions = (options: iRunOptions, mode: tTargetMode = getTargetMod
 	}
 }
 
+/**
+ * Banco fora de TARGET_DATABASES não é gravado (ex.: só a Mascavo liberada, alguém roda um job da Amobeleza ou o
+ * AnyMarket à mão). Dry-run passa: não grava nada.
+ */
+const assertDatabaseAllowed = (
+	database: tDatabase,
+	options: iRunOptions,
+	allowed: readonly tDatabase[] = getEnv().TARGET_DATABASES
+): void => {
+	if (options.dryRun || allowed.includes(database)) return
+
+	throw new SafetyError(
+		`O banco ${database} está fora de TARGET_DATABASES (${allowed.join(', ')}): gravação recusada. Use --dry-run para só conferir.`
+	)
+}
+
 const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord> => {
 	assertScope(job, brand)
 	assertRunOptions(options)
+	assertDatabaseAllowed(job.database(brand), options)
 
 	const logger = getLogger().child({ job: job.name, brand })
 	const startedAt = new Date()
@@ -100,5 +117,5 @@ const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord>
 	}
 }
 
-export { AWAITING_KEY, assertRunOptions, runJob }
+export { AWAITING_KEY, assertDatabaseAllowed, assertRunOptions, runJob }
 export type { iRunRequest }

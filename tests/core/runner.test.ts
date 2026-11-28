@@ -5,7 +5,7 @@ import { PRODUCTION_TARGET } from '../../src/config/production-target.js'
 import { MASK, maskPersonalData } from '../../src/connectors/vtex/personal-data.js'
 import { ORDER_TABLES } from '../../src/connectors/vtex/tables.js'
 import { SafetyError } from '../../src/core/errors.js'
-import { assertRunOptions } from '../../src/core/jobs/runner.js'
+import { assertDatabaseAllowed, assertRunOptions } from '../../src/core/jobs/runner.js'
 
 describe('runner: --fixture e o modo do destino', () => {
 	it('modo produção: --fixture sem --dry-run é recusado (dado de exemplo nunca vai para a cliente)', () => {
@@ -65,5 +65,19 @@ describe('modo lido do env (sem injeção)', () => {
 		expect(maskPersonalData(ORDER_TABLES.clientProfile, [{ id: 'u-1', email: 'a@exemplo.com' }])[0]?.email).toBe(
 			MASK
 		)
+	})
+})
+
+describe('runner: banco fora de TARGET_DATABASES', () => {
+	it('recusa gravar no banco que não está na lista', () => {
+		expect(() => assertDatabaseAllowed('amobeleza_etl', { dryRun: false }, ['mascavo_etl'])).toThrow(SafetyError)
+	})
+
+	it('dry-run passa (não grava nada)', () => {
+		expect(() => assertDatabaseAllowed('amobeleza_etl', { dryRun: true }, ['mascavo_etl'])).not.toThrow()
+	})
+
+	it('banco da lista passa', () => {
+		expect(() => assertDatabaseAllowed('mascavo_etl', { dryRun: false }, ['mascavo_etl'])).not.toThrow()
 	})
 })
