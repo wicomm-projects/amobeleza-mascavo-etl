@@ -214,7 +214,24 @@ Modelo em `ops/systemd/amobeleza-mascavo-etl.service`. Antes de instalar, ajuste
 No `.env` da VPS, antes de ligar: `SCHEDULER_ENABLED=true` e `TARGET_DATABASES` com os bancos liberados pela cliente.
 Enquanto só a Mascavo estiver liberada, `TARGET_DATABASES=mascavo_etl`: o agendador só agenda VTEX (pedidos a cada
 30 min, catálogo às 05:15) e GA4 (a cada 3 h, aos 15 min) da Mascavo; os jobs da Amobeleza e o AnyMarket ficam de fora,
-e um `run` manual neles é recusado (dry-run continua livre). `npm run etl -- sources` mostra a linha "Bancos liberados".
+e um `run` manual neles é recusado (dry-run continua livre). `npm run etl -- sources` mostra as linhas "Bancos
+liberados", "Jobs liberados" e "Contas do AnyMarket". No log, o que fica de fora aparece como "Job não agendado", com o
+motivo.
+
+**Mascavo + AnyMarket só da conta MASCAVO** (o TikTok e os marketplaces da Mascavo ficam em `amobeleza_etl`):
+
+```
+TARGET_DATABASES=mascavo_etl,amobeleza_etl
+TARGET_JOBS=vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders
+ANYMARKET_ACCOUNTS=MASCAVO
+```
+
+O agendador passa a ter 4 jobs (os 3 da Mascavo e o `anymarket-orders`); VTEX e GA4 da Amobeleza continuam fora. O
+AnyMarket grava só os pedidos da conta `MASCAVO`, por id de pedido: as linhas das outras contas não são tocadas, e o
+Power BI da Amobeleza não usa a conta MASCAVO.
+
+Com `amobeleza_etl` em `TARGET_DATABASES`, o ETL **não sobe** se faltar `TARGET_JOBS` ou `ANYMARKET_ACCOUNTS` (ou se
+estiverem com o nome errado), e recusa item de `TARGET_JOBS` que não existe. Para liberar tudo um dia, `*`.
 
 ```bash
 sudo cp ops/systemd/amobeleza-mascavo-etl.service /etc/systemd/system/

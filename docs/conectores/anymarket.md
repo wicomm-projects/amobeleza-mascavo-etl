@@ -5,6 +5,13 @@ Shop, Livelo...; inclusive a conta `MASCAVO`) e grava em `amobeleza_etl.anymarke
 vez, não por marca. Os dois Power BI leem dessas tabelas (o da Mascavo filtra `account_name = 'MASCAVO'`; o da
 Amobeleza usa todas as contas menos essa).
 
+**Filtro por conta (`ANYMARKET_ACCOUNTS`):** lista de nomes de `accountName`, comparados como a coluna do MySQL (sem
+diferença de maiúscula nem de espaço no fim), ou `*` para todas. Os pedidos das outras contas são
+ignorados antes de gravar (nota "pedido(s) de contas fora de ANYMARKET_ACCOUNTS ignorados"). Como a gravação é por id
+de pedido (upsert e `replaceByKeys`), as linhas das contas filtradas ficam como estão. Usado desde 28/11/2026 para
+gravar só a conta `MASCAVO` enquanto a Amobeleza não é liberada; o job entra no agendador pelo `TARGET_JOBS`
+(`docs/runbooks/vps.md`, seção 10).
+
 Código em `src/connectors/anymarket/`. DDL em `db/schema/amobeleza_etl/anymarket_*.sql`.
 
 | Arquivo           | O que faz                                                                                 |

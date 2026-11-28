@@ -28,6 +28,35 @@ const FORBIDDEN_DB_USERS = ['root']
 
 const TARGET_MODES = ['local', 'production'] as const
 
+/** "job", "job:marca" (ex.: anymarket-orders, vtex-orders:mascavo) ou "*" (todos, de forma explícita). */
+const TARGET_JOB_PATTERN = /^(\*|[a-z0-9-]+(:[a-z0-9]+)?)$/
+
+/** Prefixos das variáveis de trava: nome desconhecido com esse prefixo é erro de digitação (ex.: ANYMARKET_ACCOUNT). */
+const GUARDED_PREFIXES = ['TARGET_', 'ANYMARKET_'] as const
+
+/**
+ * Lista separada por vírgula, opcional. Sem a variável: undefined (sem restrição). Presente e vazia: erro, porque um
+ * vazio por engano não pode virar "todos".
+ */
+const optionalList = (name: string, item: z.ZodType<string, string>) =>
+	z
+		.string()
+		.optional()
+		.transform(value =>
+			value === undefined
+				? undefined
+				: value
+						.split(',')
+						.map(entry => entry.trim())
+						.filter(entry => entry !== '')
+		)
+		.pipe(
+			z
+				.array(item)
+				.min(1, `${name} presente e vazio: informe ao menos um valor (ou apague a variável).`)
+				.optional()
+		)
+
 const optionalText = z
 	.string()
 	.trim()
@@ -110,6 +139,32 @@ const checkTargetMode = (env: iTargetFields, ctx: z.RefinementCtx): void => {
 	}
 }
 
+interface iReleaseFields {
+	TARGET_MODE: (typeof TARGET_MODES)[number]
+	TARGET_DATABASES: readonly string[]
+	TARGET_JOBS?: readonly string[] | undefined
+	ANYMARKET_ACCOUNTS?: readonly string[] | undefined
+}
+
+/**
+ * Em produção, com o banco da Amobeleza liberado, TARGET_JOBS e ANYMARKET_ACCOUNTS são obrigatórios: sem eles o padrão
+ * seria "todos", e uma linha esquecida ou com o nome errado ligaria VTEX, GA4 e todas as contas do AnyMarket da
+ * Amobeleza sem aviso. Para liberar tudo, "*" de forma explícita.
+ */
+const checkAmobelezaReleased = (env: iReleaseFields, ctx: z.RefinementCtx): void => {
+	if (env.TARGET_MODE !== 'production' || !env.TARGET_DATABASES.includes('amobeleza_etl')) return
+
+	for (const key of ['TARGET_JOBS', 'ANYMARKET_ACCOUNTS'] as const) {
+		if (env[key] !== undefined) continue
+
+		ctx.addIssue({
+			code: 'custom',
+			path: [key],
+			message: `${key} é obrigatório em produção com amobeleza_etl em TARGET_DATABASES ("*" para liberar tudo).`
+		})
+	}
+}
+
 const envSchema = z
 	.object({
 		NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -152,6 +207,15 @@ const envSchema = z
 					.array(z.enum(DATABASES, { error: `TARGET_DATABASES aceita só ${DATABASES.join(' e ')}.` }))
 					.min(1, 'TARGET_DATABASES vazio: informe ao menos um banco (ou apague a variável para os dois).')
 			),
+		// Jobs que podem gravar, além do banco liberado: "job" (todas as marcas) ou "job:marca". Sem a variável, todos os jobs
+		// dos bancos de TARGET_DATABASES. Usada para gravar o AnyMarket (banco da Amobeleza) sem ligar VTEX e GA4 da
+		// Amobeleza: TARGET_JOBS=vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders.
+		TARGET_JOBS: optionalList(
+			'TARGET_JOBS',
+			z
+				.string()
+				.regex(TARGET_JOB_PATTERN, 'TARGET_JOBS: cada item é "job" ou "job:marca" (ex.: vtex-orders:mascavo).')
+		),
 		TARGET_DB_PORT: z.coerce.number().int().positive().default(3307),
 		TARGET_DB_USER: dbUser,
 		TARGET_DB_PASSWORD: optionalText,
@@ -189,6 +253,9 @@ const envSchema = z
 		// AnyMarket — uma integração só, todas as contas, gravada em amobeleza_etl.
 		ANYMARKET_BASE_URL: z.url().default('https://api.anymarket.com.br/v2'),
 		ANYMARKET_TOKEN: optionalText,
+		// Contas do AnyMarket gravadas, pelo nome exato de `accountName` (ex.: MASCAVO). Sem a variável, todas. Com só MASCAVO,
+		// as contas da Amobeleza não são tocadas: o job grava por id de pedido.
+		ANYMARKET_ACCOUNTS: optionalList('ANYMARKET_ACCOUNTS', z.string()),
 
 		// Cliente HTTP (VTEX, AnyMarket).
 		HTTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
@@ -197,6 +264,7 @@ const envSchema = z
 	})
 	.superRefine((env, ctx) => {
 		checkTargetMode(env, ctx)
+		checkAmobelezaReleased(env, ctx)
 
 		const groups: Record<string, (keyof typeof env)[]> = {
 			'banco de destino': ['TARGET_DB_USER', 'TARGET_DB_PASSWORD'],
@@ -236,6 +304,17 @@ let cachedEnv: tEnv | null = null
 
 /** Valida na primeira chamada e lança com uma linha por variável inválida. */
 const parseEnv = (source: NodeJS.ProcessEnv): tEnv => {
+	const known = new Set(Object.keys(envSchema.shape))
+	const unknown = Object.keys(source).filter(
+		key => GUARDED_PREFIXES.some(prefix => key.startsWith(prefix)) && !known.has(key)
+	)
+
+	if (unknown.length > 0) {
+		const lines = unknown.map(key => `  - ${key}: variável desconhecida (erro de digitação?)`).join('\n')
+
+		throw new Error(`Configuração de ambiente inválida:\n${lines}`)
+	}
+
 	const parsed = envSchema.safeParse(source)
 
 	if (!parsed.success) {

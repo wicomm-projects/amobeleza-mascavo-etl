@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import type { Logger } from 'pino'
 
-import { ANYMARKET_DATABASE } from '../../config/index.js'
+import { ANYMARKET_DATABASE, getEnv } from '../../config/index.js'
 import type { iWriteResult, iWriter, tRow } from '../../core/db/index.js'
 import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunOptions, iRunSummary } from '../../core/jobs/types.js'
@@ -14,7 +14,7 @@ import { ALL_TABLES, ANYMARKET_TABLES, ORDER_KEY_COLUMN } from './tables.js'
 import { type iOrderRows, toOrderRows } from './transform.js'
 
 /**
- * Job anymarket-orders: pedidos de marketplace de TODAS as contas do token (inclui MASCAVO), gravados em amobeleza_etl.
+ * Job anymarket-orders: pedidos de marketplace das contas do token (todas, ou só as de ANYMARKET_ACCOUNTS), em amobeleza_etl.
  *
  * Janela pela data de ATUALIZAÇÃO (`updatedAfter`/`updatedBefore`): pega pedido novo e mudança de status de pedido antigo.
  * A API aceita no máximo 7 dias por consulta nesse filtro; a janela é dividida em fatias de 1 dia (menos páginas por
@@ -63,10 +63,28 @@ interface iParsedOrder {
 	rows: iOrderRows
 }
 
+/** Item de ANYMARKET_ACCOUNTS que libera todas as contas, de forma explícita. */
+const ALL_ACCOUNTS = '*'
+
+/** Como a collation utf8mb4_unicode_ci da coluna account_name compara: sem diferença de maiúscula nem de espaço no fim. */
+const accountKey = (name: string): string => name.trimEnd().toLowerCase()
+
+/**
+ * Conta do pedido liberada por ANYMARKET_ACCOUNTS. Compara como o MySQL compara `account_name` (o Power BI da Mascavo
+ * filtra `account_name = 'MASCAVO'`, que também casa "Mascavo" e "MASCAVO "). Sem filtro ou com "*", todas. O job grava
+ * por id de pedido (upsert e replaceByKeys), então as linhas das contas filtradas ficam como estão.
+ */
+const isAccountAllowed = (accountName: string, accounts: readonly string[] | undefined): boolean =>
+	accounts === undefined ||
+	accounts.includes(ALL_ACCOUNTS) ||
+	accounts.some(account => accountKey(account) === accountKey(accountName))
+
 interface iRunStats {
 	pages: number
 	received: number
 	unchanged: number
+	/** Pedidos de contas fora de ANYMARKET_ACCOUNTS: não gravados. */
+	otherAccounts: number
 	rejected: number
 	rejectedIds: (number | string)[]
 	nulledDates: Map<string, number>
@@ -221,6 +239,10 @@ const buildNotes = (window: iWindow | undefined, stats: iRunStats, written: numb
 		`${stats.pages} página(s), ${stats.received} pedido(s) recebidos, ${written} gravado(s), ${stats.unchanged} sem mudança`
 	]
 
+	if (stats.otherAccounts > 0) {
+		notes.push(`${stats.otherAccounts} pedido(s) de contas fora de ANYMARKET_ACCOUNTS ignorados (não gravados)`)
+	}
+
 	if (stats.rejected > 0) {
 		const more = stats.rejected > stats.rejectedIds.length ? ' …' : ''
 
@@ -240,10 +262,12 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const { logger, writer, options } = ctx
 	const { window, pages } = openPages(options, logger)
 	const useVersionCache = !options.dryRun && !options.fixture
+	const accounts = getEnv().ANYMARKET_ACCOUNTS
 	const stats: iRunStats = {
 		pages: 0,
 		received: 0,
 		unchanged: 0,
+		otherAccounts: 0,
 		rejected: 0,
 		rejectedIds: [],
 		nulledDates: new Map()
@@ -296,6 +320,11 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 			const order = parsed.data
 
+			if (!isAccountAllowed(order.accountName, accounts)) {
+				stats.otherAccounts += 1
+				continue
+			}
+
 			if (useVersionCache && order.lastUpdate && writtenVersions.get(order.id) === order.lastUpdate) {
 				stats.unchanged += 1
 				continue
@@ -324,11 +353,11 @@ const anymarketOrdersJob: iJob = {
 	name: JOB_NAME,
 	source: 'anymarket',
 	scope: 'global',
-	description: 'Pedidos de marketplace (todas as contas do AnyMarket) → amobeleza_etl.anymarket_*',
+	description: 'Pedidos de marketplace (contas de ANYMARKET_ACCOUNTS, ou todas) → amobeleza_etl.anymarket_*',
 	tables: ALL_TABLES,
 	database: () => ANYMARKET_DATABASE,
 	schedule: SCHEDULE_EVERY_30_MIN,
 	run
 }
 
-export { anymarketOrdersJob, rawOrderId, resolveWindow, sliceWindow }
+export { anymarketOrdersJob, isAccountAllowed, rawOrderId, resolveWindow, sliceWindow }
