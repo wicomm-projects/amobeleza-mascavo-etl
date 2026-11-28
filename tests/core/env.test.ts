@@ -130,3 +130,37 @@ describe('env: bancos que o ETL pode gravar (TARGET_DATABASES)', () => {
 		expect(() => parseEnv({ TARGET_DATABASES: '' })).toThrow(/TARGET_DATABASES/)
 	})
 })
+
+describe('env: TARGET_JOBS e ANYMARKET_ACCOUNTS', () => {
+	it('sem as variáveis: todos os jobs e todas as contas (undefined)', () => {
+		const env = parseEnv({})
+
+		expect(env.TARGET_JOBS).toBeUndefined()
+		expect(env.ANYMARKET_ACCOUNTS).toBeUndefined()
+	})
+
+	it('TARGET_JOBS aceita "job" e "job:marca", separados por vírgula', () => {
+		expect(parseEnv({ TARGET_JOBS: ' vtex-orders:mascavo , anymarket-orders ' }).TARGET_JOBS).toEqual([
+			'vtex-orders:mascavo',
+			'anymarket-orders'
+		])
+	})
+
+	it.each(['vtex orders', 'vtex-orders:', ':mascavo', 'VTEX-ORDERS'])(
+		'TARGET_JOBS recusa formato inválido: %s',
+		value => {
+			expect(() => parseEnv({ TARGET_JOBS: value })).toThrow(/TARGET_JOBS/)
+		}
+	)
+
+	it('ANYMARKET_ACCOUNTS guarda os nomes exatos das contas', () => {
+		expect(parseEnv({ ANYMARKET_ACCOUNTS: 'MASCAVO' }).ANYMARKET_ACCOUNTS).toEqual(['MASCAVO'])
+	})
+
+	it.each(['TARGET_JOBS', 'ANYMARKET_ACCOUNTS'])(
+		'%s presente e vazio é erro (vazio não pode virar "todos")',
+		name => {
+			expect(() => parseEnv({ [name]: '  ' })).toThrow(new RegExp(name))
+		}
+	)
+})

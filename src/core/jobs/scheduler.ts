@@ -1,7 +1,8 @@
 import cron, { type ScheduledTask } from 'node-cron'
 
-import { getEnv, getLogger, type tBrand, type tDatabase } from '../../config/index.js'
+import { getLogger, type tBrand } from '../../config/index.js'
 
+import { currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
 import { allJobs, brandsOf } from './registry.js'
 import { runJob } from './runner.js'
 import type { iJob } from './types.js'
@@ -10,8 +11,8 @@ import type { iJob } from './types.js'
  * Agendador interno. Só liga com SCHEDULER_ENABLED=true (na VPS, depois da liberação de cada fonte).
  * Horários no fuso de São Paulo. `noOverlap` + o lock do runner evitam duas execuções do mesmo job ao mesmo tempo.
  *
- * Só agenda os jobs que gravam num banco de TARGET_DATABASES. Na virada só da Mascavo (TARGET_DATABASES=mascavo_etl),
- * ficam de fora os jobs da Amobeleza e o AnyMarket, que grava em amobeleza_etl.
+ * Só agenda o que TARGET_DATABASES e TARGET_JOBS liberam (allowed.ts). Na virada só da Mascavo ficam de fora os jobs da
+ * Amobeleza; o AnyMarket entra só com TARGET_JOBS (e ANYMARKET_ACCOUNTS=MASCAVO), porque grava em amobeleza_etl.
  */
 
 const TIMEZONE = 'America/Sao_Paulo'
@@ -21,12 +22,13 @@ const tasks: ScheduledTask[] = []
 interface iPlannedRun {
 	job: iJob
 	brand: tBrand | undefined
+	reason?: string
 }
 
-/** Execuções (job × marca) com horário, separadas entre as que o banco liberado permite e as que ficam de fora. */
+/** Execuções (job × marca) com horário, separadas entre as liberadas e as que ficam de fora (com o motivo). */
 const plannedRuns = (
 	jobs: readonly iJob[] = allJobs(),
-	allowed: readonly tDatabase[] = getEnv().TARGET_DATABASES
+	allowance: iAllowance = currentAllowance()
 ): { planned: iPlannedRun[]; skipped: iPlannedRun[] } => {
 	const planned: iPlannedRun[] = []
 	const skipped: iPlannedRun[] = []
@@ -35,9 +37,10 @@ const plannedRuns = (
 		if (!job.schedule) continue
 
 		for (const brand of brandsOf(job)) {
-			const target = allowed.includes(job.database(brand)) ? planned : skipped
+			const reason = runBlockReason(job, brand, allowance)
 
-			target.push({ job, brand })
+			if (reason) skipped.push({ job, brand, reason })
+			else planned.push({ job, brand })
 		}
 	}
 
@@ -48,11 +51,8 @@ const startScheduler = (): number => {
 	const logger = getLogger()
 	const { planned, skipped } = plannedRuns()
 
-	for (const { job, brand } of skipped) {
-		logger.info(
-			{ job: job.name, brand, database: job.database(brand) },
-			'Job não agendado: banco fora de TARGET_DATABASES'
-		)
+	for (const { job, brand, reason } of skipped) {
+		logger.info({ job: job.name, brand, database: job.database(brand), reason }, 'Job não agendado')
 	}
 
 	for (const { job, brand } of planned) {

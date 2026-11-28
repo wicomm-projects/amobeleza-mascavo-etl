@@ -1,7 +1,8 @@
-import { getEnv, getLogger, getTargetMode, type tBrand, type tDatabase, type tTargetMode } from '../../config/index.js'
+import { getLogger, getTargetMode, type tBrand, type tTargetMode } from '../../config/index.js'
 import { createWriter } from '../db/index.js'
 import { AppError, SafetyError } from '../errors.js'
 
+import { currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
 import { withJobLock } from './lock.js'
 import { sourceOfJob, tablesOf } from './registry.js'
 import { type iRunRecord, recordRun, runKey } from './status.js'
@@ -36,25 +37,26 @@ const assertRunOptions = (options: iRunOptions, mode: tTargetMode = getTargetMod
 }
 
 /**
- * Banco fora de TARGET_DATABASES não é gravado (ex.: só a Mascavo liberada, alguém roda um job da Amobeleza ou o
- * AnyMarket à mão). Dry-run passa: não grava nada.
+ * Banco fora de TARGET_DATABASES ou job fora de TARGET_JOBS não é gravado (ex.: alguém roda à mão um job da Amobeleza
+ * que não foi liberado). Dry-run passa: não grava nada.
  */
-const assertDatabaseAllowed = (
-	database: tDatabase,
+const assertRunAllowed = (
+	job: iJob,
+	brand: tBrand | undefined,
 	options: iRunOptions,
-	allowed: readonly tDatabase[] = getEnv().TARGET_DATABASES
+	allowance: iAllowance = currentAllowance()
 ): void => {
-	if (options.dryRun || allowed.includes(database)) return
+	if (options.dryRun) return
 
-	throw new SafetyError(
-		`O banco ${database} está fora de TARGET_DATABASES (${allowed.join(', ')}): gravação recusada. Use --dry-run para só conferir.`
-	)
+	const reason = runBlockReason(job, brand, allowance)
+
+	if (reason) throw new SafetyError(`Gravação recusada: ${reason}. Use --dry-run para só conferir.`)
 }
 
 const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord> => {
 	assertScope(job, brand)
 	assertRunOptions(options)
-	assertDatabaseAllowed(job.database(brand), options)
+	assertRunAllowed(job, brand, options)
 
 	const logger = getLogger().child({ job: job.name, brand })
 	const startedAt = new Date()
@@ -117,5 +119,5 @@ const runJob = async ({ job, brand, options }: iRunRequest): Promise<iRunRecord>
 	}
 }
 
-export { AWAITING_KEY, assertDatabaseAllowed, assertRunOptions, runJob }
+export { AWAITING_KEY, assertRunAllowed, assertRunOptions, runJob }
 export type { iRunRequest }

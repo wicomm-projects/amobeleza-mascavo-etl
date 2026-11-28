@@ -21,7 +21,7 @@ const names = (runs: ReturnType<typeof plannedRuns>) =>
 
 describe('agendador: só os jobs dos bancos liberados', () => {
 	it('só a Mascavo: agenda VTEX e GA4 da Mascavo; Amobeleza e AnyMarket ficam de fora', () => {
-		const runs = plannedRuns(JOBS, ['mascavo_etl'])
+		const runs = plannedRuns(JOBS, { databases: ['mascavo_etl'] })
 
 		expect(names(runs)).toEqual(['vtex-orders:mascavo', 'ga4:mascavo'])
 		expect(runs.skipped.map(run => (run.brand ? `${run.job.name}:${run.brand}` : run.job.name))).toEqual([
@@ -32,12 +32,21 @@ describe('agendador: só os jobs dos bancos liberados', () => {
 	})
 
 	it('os dois bancos: agenda tudo que tem horário', () => {
-		expect(names(plannedRuns(JOBS, ['mascavo_etl', 'amobeleza_etl']))).toEqual([
+		expect(names(plannedRuns(JOBS, { databases: ['mascavo_etl', 'amobeleza_etl'] }))).toEqual([
 			'vtex-orders:mascavo',
 			'vtex-orders:amobeleza',
 			'ga4:mascavo',
 			'ga4:amobeleza',
 			'anymarket-orders'
 		])
+	})
+
+	it('os dois bancos + TARGET_JOBS: agenda VTEX e GA4 da Mascavo e o AnyMarket, sem a Amobeleza', () => {
+		const runs = plannedRuns(JOBS, {
+			databases: ['mascavo_etl', 'amobeleza_etl'],
+			jobs: ['vtex-orders:mascavo', 'ga4:mascavo', 'anymarket-orders']
+		})
+
+		expect(names(runs)).toEqual(['vtex-orders:mascavo', 'ga4:mascavo', 'anymarket-orders'])
 	})
 })

@@ -28,6 +28,32 @@ const FORBIDDEN_DB_USERS = ['root']
 
 const TARGET_MODES = ['local', 'production'] as const
 
+/** "job" ou "job:marca" (ex.: anymarket-orders, vtex-orders:mascavo). */
+const TARGET_JOB_PATTERN = /^[a-z0-9-]+(:[a-z0-9]+)?$/
+
+/**
+ * Lista separada por vírgula, opcional. Sem a variável: undefined (sem restrição). Presente e vazia: erro, porque um
+ * vazio por engano não pode virar "todos".
+ */
+const optionalList = (name: string, item: z.ZodType<string, string>) =>
+	z
+		.string()
+		.optional()
+		.transform(value =>
+			value === undefined
+				? undefined
+				: value
+						.split(',')
+						.map(entry => entry.trim())
+						.filter(entry => entry !== '')
+		)
+		.pipe(
+			z
+				.array(item)
+				.min(1, `${name} presente e vazio: informe ao menos um valor (ou apague a variável).`)
+				.optional()
+		)
+
 const optionalText = z
 	.string()
 	.trim()
@@ -152,6 +178,15 @@ const envSchema = z
 					.array(z.enum(DATABASES, { error: `TARGET_DATABASES aceita só ${DATABASES.join(' e ')}.` }))
 					.min(1, 'TARGET_DATABASES vazio: informe ao menos um banco (ou apague a variável para os dois).')
 			),
+		// Jobs que podem gravar, além do banco liberado: "job" (todas as marcas) ou "job:marca". Sem a variável, todos os jobs
+		// dos bancos de TARGET_DATABASES. Usada para gravar o AnyMarket (banco da Amobeleza) sem ligar VTEX e GA4 da
+		// Amobeleza: TARGET_JOBS=vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders.
+		TARGET_JOBS: optionalList(
+			'TARGET_JOBS',
+			z
+				.string()
+				.regex(TARGET_JOB_PATTERN, 'TARGET_JOBS: cada item é "job" ou "job:marca" (ex.: vtex-orders:mascavo).')
+		),
 		TARGET_DB_PORT: z.coerce.number().int().positive().default(3307),
 		TARGET_DB_USER: dbUser,
 		TARGET_DB_PASSWORD: optionalText,
@@ -189,6 +224,9 @@ const envSchema = z
 		// AnyMarket — uma integração só, todas as contas, gravada em amobeleza_etl.
 		ANYMARKET_BASE_URL: z.url().default('https://api.anymarket.com.br/v2'),
 		ANYMARKET_TOKEN: optionalText,
+		// Contas do AnyMarket gravadas, pelo nome exato de `accountName` (ex.: MASCAVO). Sem a variável, todas. Com só MASCAVO,
+		// as contas da Amobeleza não são tocadas: o job grava por id de pedido.
+		ANYMARKET_ACCOUNTS: optionalList('ANYMARKET_ACCOUNTS', z.string()),
 
 		// Cliente HTTP (VTEX, AnyMarket).
 		HTTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),

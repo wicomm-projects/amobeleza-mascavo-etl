@@ -32,9 +32,12 @@ ONLY` com `max_execution_time`, e nunca lê tabela do Laravel. Consulta na produ
   plataformas.
 - Ligar o modo produção na VPS só depois de: backup das tabelas, última paridade e conferência do `check-access`
   (`docs/planos/2026-11-25-virada-producao.md`). A autorização por escrito da cliente veio pelo WhatsApp (25/11/2026).
-- `TARGET_DATABASES` diz em quais bancos o ETL pode gravar. Em 27/11/2026 só a Mascavo foi liberada: a VPS usa
-  `TARGET_DATABASES=mascavo_etl`, o agendador ignora os jobs da Amobeleza e o AnyMarket (que grava em `amobeleza_etl`),
-  e o runner recusa gravar neles. Liberar a Amobeleza é trocar essa variável, com a autorização da cliente.
+- `TARGET_DATABASES` (bancos) e `TARGET_JOBS` (jobs, opcional) dizem o que o ETL pode gravar; o agendador só agenda isso
+  e o runner recusa o resto (`src/core/jobs/allowed.ts`). Em 27/11/2026 só a Mascavo foi liberada. Para gravar o
+  AnyMarket só da conta MASCAVO (que fica em `amobeleza_etl`) sem ligar VTEX e GA4 da Amobeleza, a VPS usa os dois
+  bancos, `TARGET_JOBS=vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders` e
+  `ANYMARKET_ACCOUNTS=MASCAVO` (o job grava por id de pedido: as contas da Amobeleza não são tocadas). Liberar a
+  Amobeleza é tirar o `TARGET_JOBS` e o `ANYMARKET_ACCOUNTS`, com a autorização da cliente.
 - Tabelas do Laravel (`failed_jobs`, `telescope_*`, `migrations`, `users`, `password_resets`, `personal_access_tokens`,
   `health_check_*`) nunca entram no código.
 

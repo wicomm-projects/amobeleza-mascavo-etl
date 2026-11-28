@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import type { Logger } from 'pino'
 
-import { ANYMARKET_DATABASE } from '../../config/index.js'
+import { ANYMARKET_DATABASE, getEnv } from '../../config/index.js'
 import type { iWriteResult, iWriter, tRow } from '../../core/db/index.js'
 import { AppError } from '../../core/errors.js'
 import type { iJob, iJobContext, iRunOptions, iRunSummary } from '../../core/jobs/types.js'
@@ -63,10 +63,20 @@ interface iParsedOrder {
 	rows: iOrderRows
 }
 
+/**
+ * Conta do pedido liberada por ANYMARKET_ACCOUNTS (nome exato de `accountName`, como o Power BI da Mascavo filtra
+ * `account_name = 'MASCAVO'`). Sem filtro, todas. O job grava por id de pedido (upsert e replaceByKeys), então as linhas
+ * das contas filtradas ficam como estão.
+ */
+const isAccountAllowed = (accountName: string, accounts: readonly string[] | undefined): boolean =>
+	accounts === undefined || accounts.includes(accountName)
+
 interface iRunStats {
 	pages: number
 	received: number
 	unchanged: number
+	/** Pedidos de contas fora de ANYMARKET_ACCOUNTS: não gravados. */
+	otherAccounts: number
 	rejected: number
 	rejectedIds: (number | string)[]
 	nulledDates: Map<string, number>
@@ -221,6 +231,10 @@ const buildNotes = (window: iWindow | undefined, stats: iRunStats, written: numb
 		`${stats.pages} página(s), ${stats.received} pedido(s) recebidos, ${written} gravado(s), ${stats.unchanged} sem mudança`
 	]
 
+	if (stats.otherAccounts > 0) {
+		notes.push(`${stats.otherAccounts} pedido(s) de contas fora de ANYMARKET_ACCOUNTS ignorados (não gravados)`)
+	}
+
 	if (stats.rejected > 0) {
 		const more = stats.rejected > stats.rejectedIds.length ? ' …' : ''
 
@@ -240,10 +254,12 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 	const { logger, writer, options } = ctx
 	const { window, pages } = openPages(options, logger)
 	const useVersionCache = !options.dryRun && !options.fixture
+	const accounts = getEnv().ANYMARKET_ACCOUNTS
 	const stats: iRunStats = {
 		pages: 0,
 		received: 0,
 		unchanged: 0,
+		otherAccounts: 0,
 		rejected: 0,
 		rejectedIds: [],
 		nulledDates: new Map()
@@ -296,6 +312,11 @@ const run = async (ctx: iJobContext): Promise<iRunSummary> => {
 
 			const order = parsed.data
 
+			if (!isAccountAllowed(order.accountName, accounts)) {
+				stats.otherAccounts += 1
+				continue
+			}
+
 			if (useVersionCache && order.lastUpdate && writtenVersions.get(order.id) === order.lastUpdate) {
 				stats.unchanged += 1
 				continue
@@ -331,4 +352,4 @@ const anymarketOrdersJob: iJob = {
 	run
 }
 
-export { anymarketOrdersJob, rawOrderId, resolveWindow, sliceWindow }
+export { anymarketOrdersJob, isAccountAllowed, rawOrderId, resolveWindow, sliceWindow }

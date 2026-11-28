@@ -67,6 +67,12 @@ const commandSources = async () => {
 		`${'Destino das cargas'.padEnd(34)} ${getTargetMode() === 'production' ? 'PRODUÇÃO da cliente (wicomm_etl)' : 'MySQL local (Docker)'}`
 	)
 	out(`${'Bancos liberados'.padEnd(34)} ${getEnv().TARGET_DATABASES.join(', ')} (TARGET_DATABASES)`)
+	out(
+		`${'Jobs liberados'.padEnd(34)} ${getEnv().TARGET_JOBS?.join(', ') ?? 'todos dos bancos liberados'} (TARGET_JOBS)`
+	)
+	out(
+		`${'Contas do AnyMarket'.padEnd(34)} ${getEnv().ANYMARKET_ACCOUNTS?.join(', ') ?? 'todas'} (ANYMARKET_ACCOUNTS)`
+	)
 
 	return 0
 }
