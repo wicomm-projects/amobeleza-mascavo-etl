@@ -71,17 +71,58 @@ const listNote = (label: string, ids: string[]): string => {
 }
 
 /**
- * Pedido mudou se a lista não traz lastChange (ou traz num formato ilegível), se não há detalhe gravado ou se o
- * lastChange é diferente do gravado.
+ * Situação de cada pedido da lista frente ao lastChange gravado (o do detalhe, em segundos UTC):
+ * - `novo`: sem detalhe gravado;
+ * - `sem lastChange`: a lista não traz a data, ou traz ilegível;
+ * - `mudou`: a lista tem data mais nova que a gravada;
+ * - `igual`: mesmo segundo;
+ * - `lista mais antiga`: a lista do OMS vem de um índice de busca que fica atrás do detalhe. O detalhe gravado já é mais
+ *   novo que o que a lista diz, então não há o que buscar. Medido na VPS em 27/11/2026: comparando por igualdade, cerca
+ *   de 75% dos pedidos da janela eram buscados de novo a cada 30 minutos sem terem mudado.
  */
-const hasChanged = (order: tListOrder, stored: ReadonlyMap<string, string>): boolean => {
+type tChangeState = 'novo' | 'sem lastChange' | 'mudou' | 'igual' | 'lista mais antiga'
+
+const CHANGED_STATES: ReadonlySet<tChangeState> = new Set(['novo', 'sem lastChange', 'mudou'])
+
+const classifyChange = (order: tListOrder, stored: ReadonlyMap<string, string>): tChangeState => {
+	const storedText = stored.get(order.orderId)
+
+	if (storedText === undefined) return 'novo'
+
 	try {
 		const listed = toComparableUtc(order.lastChange)
 
-		return listed === null || stored.get(order.orderId) !== listed
+		if (listed === null) return 'sem lastChange'
+
+		// Os dois lados em "AAAA-MM-DD HH:MM:SS" UTC, de largura fixa: a ordem do texto é a ordem do tempo.
+		if (listed === storedText) return 'igual'
+
+		return listed > storedText ? 'mudou' : 'lista mais antiga'
 	} catch {
-		return true
+		return 'sem lastChange'
 	}
+}
+
+/** Busca o detalhe de novo só quando é novo, sem data na lista ou com data mais nova que a gravada. */
+const hasChanged = (order: tListOrder, stored: ReadonlyMap<string, string>): boolean =>
+	CHANGED_STATES.has(classifyChange(order, stored))
+
+/** Contagem por situação, para o log: mostra se a regra está deixando de buscar o que não mudou. */
+const countChangeStates = (
+	orders: readonly tListOrder[],
+	stored: ReadonlyMap<string, string>
+): Record<tChangeState, number> => {
+	const counts: Record<tChangeState, number> = {
+		'novo': 0,
+		'sem lastChange': 0,
+		'mudou': 0,
+		'igual': 0,
+		'lista mais antiga': 0
+	}
+
+	for (const order of orders) counts[classifyChange(order, stored)] += 1
+
+	return counts
 }
 
 const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOrders> => {
@@ -101,7 +142,13 @@ const fetchFromApi = async (ctx: iJobContext, brand: tBrand): Promise<iFetchedOr
 	const withoutLastChange = listed.filter(order => !order.lastChange).length
 
 	ctx.logger.info(
-		{ listed: listed.length, changed: changed.length, windows: stats.windows, pages: stats.pages },
+		{
+			listed: listed.length,
+			changed: changed.length,
+			states: countChangeStates(listed, stored),
+			windows: stats.windows,
+			pages: stats.pages
+		},
 		'Pedidos listados'
 	)
 
@@ -315,4 +362,5 @@ const ordersJob: iJob = {
 	run
 }
 
-export { DEFAULT_WINDOW_DAYS, hasChanged, ordersJob }
+export { DEFAULT_WINDOW_DAYS, classifyChange, countChangeStates, hasChanged, ordersJob }
+export type { tChangeState }

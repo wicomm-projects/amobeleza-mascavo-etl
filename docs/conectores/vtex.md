@@ -62,10 +62,14 @@ doc — conferir ao criar a chave. Nenhum recurso de escrita.
    entre páginas ou metades entra uma vez. Mais de 3.000 pedidos em menos de 1 minuto é tratado como filtro quebrado e
    a carga falha.
 3. **O que mudou** (`stored.ts`): lê no banco de destino (Docker local, conexão protegida do núcleo) o `last_change` de
-   `vtex_order_details` dos pedidos listados. Busca o detalhe só de quem não tem detalhe gravado ou tem `lastChange`
-   diferente ou ilegível (comparado em UTC, ao segundo). A base é `vtex_order_details`, não `vtex_orders`: um detalhe
-   que falhou numa carga é buscado de novo na próxima. Se a maioria dos pedidos vier sem `lastChange`, a carga avisa
-   (log e nota): nesse caso o detalhe de todos é buscado a cada 30 min.
+   `vtex_order_details` dos pedidos listados. Busca o detalhe só de quem não tem detalhe gravado, vem sem `lastChange`
+   (ou ilegível) ou tem `lastChange` **mais novo** que o gravado (comparado em UTC, ao segundo). Lista com data **mais
+   antiga** que a gravada não é mudança: a lista do OMS vem de um índice de busca que fica atrás do detalhe. Comparando
+   por igualdade, a primeira noite do agendador na VPS (27/11/2026) buscava de novo cerca de 75% dos pedidos da janela
+   a cada 30 minutos, sem mudança. O log "Pedidos listados" traz a contagem por situação (`states`: novo, sem
+   lastChange, mudou, igual, lista mais antiga). A base é `vtex_order_details`, não `vtex_orders`: um detalhe que falhou
+   numa carga é buscado de novo na próxima. Se a maioria dos pedidos vier sem `lastChange`, a carga avisa (log e nota):
+   nesse caso o detalhe de todos é buscado a cada 30 min.
 4. **Detalhes** em paralelo (`HTTP_CONCURRENCY`). **Isolamento por pedido:** detalhe que falha (rede, 5xx, resposta
    fora do schema) ou que não cabe nas colunas (coluna NOT NULL vazia, `seller` não numérico) fica de fora desta carga,
    com o ID nas notas do resumo, e volta na próxima; o mesmo vale para um pedido da lista. Assim um pedido ruim não
