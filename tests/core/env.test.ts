@@ -105,3 +105,28 @@ describe('env: modo do destino (TARGET_MODE)', () => {
 		expect(() => parseEnv({ TARGET_MODE: 'production', TARGET_DB_HOST: CLIENT_HOST })).toThrow(/TARGET_DB_USER/)
 	})
 })
+
+describe('env: bancos que o ETL pode gravar (TARGET_DATABASES)', () => {
+	it('sem a variável, os dois bancos (comportamento de antes)', () => {
+		expect(parseEnv({}).TARGET_DATABASES).toEqual(['mascavo_etl', 'amobeleza_etl'])
+	})
+
+	it('aceita só a Mascavo, com espaços em volta', () => {
+		expect(parseEnv({ TARGET_DATABASES: ' mascavo_etl ' }).TARGET_DATABASES).toEqual(['mascavo_etl'])
+	})
+
+	it('aceita os dois separados por vírgula', () => {
+		expect(parseEnv({ TARGET_DATABASES: 'mascavo_etl, amobeleza_etl' }).TARGET_DATABASES).toEqual([
+			'mascavo_etl',
+			'amobeleza_etl'
+		])
+	})
+
+	it.each(['outro_banco', 'mascavo', 'mascavo_etl,amobeleza'])('recusa banco desconhecido: %s', value => {
+		expect(() => parseEnv({ TARGET_DATABASES: value })).toThrow(/TARGET_DATABASES/)
+	})
+
+	it('recusa a variável vazia (vazio não pode virar "todos" nem "nenhum" calado)', () => {
+		expect(() => parseEnv({ TARGET_DATABASES: '' })).toThrow(/TARGET_DATABASES/)
+	})
+})

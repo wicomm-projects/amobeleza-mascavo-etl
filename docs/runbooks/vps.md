@@ -211,6 +211,11 @@ No modo produção, a máscara de dado pessoal é desligada (o Power BI precisa 
 Modelo em `ops/systemd/amobeleza-mascavo-etl.service`. Antes de instalar, ajuste o caminho do Node no `ExecStart`:
 `which node` mostra a versão exata do nvm. Os logs ficam no journald (`journalctl -u amobeleza-mascavo-etl`).
 
+No `.env` da VPS, antes de ligar: `SCHEDULER_ENABLED=true` e `TARGET_DATABASES` com os bancos liberados pela cliente.
+Enquanto só a Mascavo estiver liberada, `TARGET_DATABASES=mascavo_etl`: o agendador só agenda VTEX (pedidos a cada
+30 min, catálogo às 05:15) e GA4 (a cada 3 h, aos 15 min) da Mascavo; os jobs da Amobeleza e o AnyMarket ficam de fora,
+e um `run` manual neles é recusado (dry-run continua livre). `npm run etl -- sources` mostra a linha "Bancos liberados".
+
 ```bash
 sudo cp ops/systemd/amobeleza-mascavo-etl.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now amobeleza-mascavo-etl
