@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { tBrand, tDatabase } from '../../src/config/brands.js'
-import { runBlockReason } from '../../src/core/jobs/allowed.js'
+import { assertTargetJobsKnown, runBlockReason } from '../../src/core/jobs/allowed.js'
 import type { iJob } from '../../src/core/jobs/types.js'
 
 const databaseOf = (brand?: tBrand): tDatabase => (brand === 'amobeleza' ? 'amobeleza_etl' : 'mascavo_etl')
@@ -44,5 +44,32 @@ describe('o que o ETL pode gravar (TARGET_DATABASES + TARGET_JOBS)', () => {
 		expect(
 			runBlockReason(ANYMARKET, undefined, { databases: ['mascavo_etl'], jobs: ['anymarket-orders'] })
 		).toMatch(/TARGET_DATABASES/)
+	})
+})
+
+describe('TARGET_JOBS: "*" e itens conferidos contra os jobs que existem', () => {
+	const REGISTRY = [
+		{ name: 'vtex-orders', scope: 'brand' },
+		{ name: 'anymarket-orders', scope: 'global' }
+	] as unknown as iJob[]
+
+	it('"*" libera todos os jobs dos bancos liberados', () => {
+		expect(runBlockReason(VTEX, 'amobeleza', { databases: BOTH, jobs: ['*'] })).toBeNull()
+	})
+
+	it('itens válidos passam', () => {
+		expect(() => assertTargetJobsKnown(['vtex-orders:mascavo', 'anymarket-orders', '*'], REGISTRY)).not.toThrow()
+	})
+
+	it.each([
+		['vtex-order:mascavo', /não existe/],
+		['vtex-orders:outra', /marca/],
+		['anymarket-orders:mascavo', /global/]
+	])('recusa %s', (item, message) => {
+		expect(() => assertTargetJobsKnown([item], REGISTRY)).toThrow(message)
+	})
+
+	it('sem TARGET_JOBS não há o que conferir', () => {
+		expect(() => assertTargetJobsKnown(undefined, REGISTRY)).not.toThrow()
 	})
 })

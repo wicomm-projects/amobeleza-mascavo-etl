@@ -230,6 +230,9 @@ O agendador passa a ter 4 jobs (os 3 da Mascavo e o `anymarket-orders`); VTEX e 
 AnyMarket grava só os pedidos da conta `MASCAVO`, por id de pedido: as linhas das outras contas não são tocadas, e o
 Power BI da Amobeleza não usa a conta MASCAVO.
 
+Com `amobeleza_etl` em `TARGET_DATABASES`, o ETL **não sobe** se faltar `TARGET_JOBS` ou `ANYMARKET_ACCOUNTS` (ou se
+estiverem com o nome errado), e recusa item de `TARGET_JOBS` que não existe. Para liberar tudo um dia, `*`.
+
 ```bash
 sudo cp ops/systemd/amobeleza-mascavo-etl.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now amobeleza-mascavo-etl

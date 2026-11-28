@@ -36,8 +36,10 @@ ONLY` com `max_execution_time`, e nunca lê tabela do Laravel. Consulta na produ
   e o runner recusa o resto (`src/core/jobs/allowed.ts`). Em 27/11/2026 só a Mascavo foi liberada. Para gravar o
   AnyMarket só da conta MASCAVO (que fica em `amobeleza_etl`) sem ligar VTEX e GA4 da Amobeleza, a VPS usa os dois
   bancos, `TARGET_JOBS=vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders` e
-  `ANYMARKET_ACCOUNTS=MASCAVO` (o job grava por id de pedido: as contas da Amobeleza não são tocadas). Liberar a
-  Amobeleza é tirar o `TARGET_JOBS` e o `ANYMARKET_ACCOUNTS`, com a autorização da cliente.
+  `ANYMARKET_ACCOUNTS=MASCAVO` (o job grava por id de pedido: as contas da Amobeleza não são tocadas). Em produção, com
+  `amobeleza_etl` liberado, as duas variáveis são obrigatórias (o env recusa subir sem elas) e os itens de `TARGET_JOBS`
+  são conferidos contra os jobs que existem. Liberar a Amobeleza é trocar as duas por `*`, com a autorização da cliente,
+  e rodar as cargas retroativas (`--from`): o AnyMarket de rotina só olha as últimas 24 h.
 - Tabelas do Laravel (`failed_jobs`, `telescope_*`, `migrations`, `users`, `password_resets`, `personal_access_tokens`,
   `health_check_*`) nunca entram no código.
 

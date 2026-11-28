@@ -2,7 +2,7 @@ import { getLogger, getTargetMode, type tBrand, type tTargetMode } from '../../c
 import { createWriter } from '../db/index.js'
 import { AppError, SafetyError } from '../errors.js'
 
-import { currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
+import { assertTargetJobsKnown, currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
 import { withJobLock } from './lock.js'
 import { sourceOfJob, tablesOf } from './registry.js'
 import { type iRunRecord, recordRun, runKey } from './status.js'
@@ -47,6 +47,8 @@ const assertRunAllowed = (
 	allowance: iAllowance = currentAllowance()
 ): void => {
 	if (options.dryRun) return
+
+	assertTargetJobsKnown(allowance.jobs)
 
 	const reason = runBlockReason(job, brand, allowance)
 

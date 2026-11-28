@@ -30,6 +30,7 @@ describe('runner: --fixture e o modo do destino', () => {
 describe('modo lido do env (sem injeção)', () => {
 	const PRODUCTION_ENV = {
 		TARGET_MODE: 'production',
+		TARGET_DATABASES: 'mascavo_etl',
 		TARGET_DB_HOST: '203.0.113.20',
 		TARGET_DB_PORT: String(PRODUCTION_TARGET.port),
 		TARGET_DB_USER: PRODUCTION_TARGET.user,

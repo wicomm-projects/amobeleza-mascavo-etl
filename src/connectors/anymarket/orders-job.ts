@@ -14,7 +14,7 @@ import { ALL_TABLES, ANYMARKET_TABLES, ORDER_KEY_COLUMN } from './tables.js'
 import { type iOrderRows, toOrderRows } from './transform.js'
 
 /**
- * Job anymarket-orders: pedidos de marketplace de TODAS as contas do token (inclui MASCAVO), gravados em amobeleza_etl.
+ * Job anymarket-orders: pedidos de marketplace das contas do token (todas, ou só as de ANYMARKET_ACCOUNTS), em amobeleza_etl.
  *
  * Janela pela data de ATUALIZAÇÃO (`updatedAfter`/`updatedBefore`): pega pedido novo e mudança de status de pedido antigo.
  * A API aceita no máximo 7 dias por consulta nesse filtro; a janela é dividida em fatias de 1 dia (menos páginas por
@@ -63,13 +63,21 @@ interface iParsedOrder {
 	rows: iOrderRows
 }
 
+/** Item de ANYMARKET_ACCOUNTS que libera todas as contas, de forma explícita. */
+const ALL_ACCOUNTS = '*'
+
 /**
- * Conta do pedido liberada por ANYMARKET_ACCOUNTS (nome exato de `accountName`, como o Power BI da Mascavo filtra
- * `account_name = 'MASCAVO'`). Sem filtro, todas. O job grava por id de pedido (upsert e replaceByKeys), então as linhas
+ * Conta do pedido liberada por ANYMARKET_ACCOUNTS. Compara como o MySQL compara `account_name` (o Power BI da Mascavo
+ * filtra `account_name = 'MASCAVO'`, que também casa "Mascavo" e "MASCAVO "). Sem filtro, todas. O job grava por id de pedido (upsert e replaceByKeys), então as linhas
  * das contas filtradas ficam como estão.
  */
+/** Como a collation utf8mb4_unicode_ci da coluna account_name compara: sem diferença de maiúscula nem de espaço no fim. */
+const accountKey = (name: string): string => name.trimEnd().toLowerCase()
+
 const isAccountAllowed = (accountName: string, accounts: readonly string[] | undefined): boolean =>
-	accounts === undefined || accounts.includes(accountName)
+	accounts === undefined ||
+	accounts.includes(ALL_ACCOUNTS) ||
+	accounts.some(account => accountKey(account) === accountKey(accountName))
 
 interface iRunStats {
 	pages: number
@@ -345,7 +353,7 @@ const anymarketOrdersJob: iJob = {
 	name: JOB_NAME,
 	source: 'anymarket',
 	scope: 'global',
-	description: 'Pedidos de marketplace (todas as contas do AnyMarket) → amobeleza_etl.anymarket_*',
+	description: 'Pedidos de marketplace (contas de ANYMARKET_ACCOUNTS, ou todas) → amobeleza_etl.anymarket_*',
 	tables: ALL_TABLES,
 	database: () => ANYMARKET_DATABASE,
 	schedule: SCHEDULE_EVERY_30_MIN,

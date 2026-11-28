@@ -28,8 +28,11 @@ const FORBIDDEN_DB_USERS = ['root']
 
 const TARGET_MODES = ['local', 'production'] as const
 
-/** "job" ou "job:marca" (ex.: anymarket-orders, vtex-orders:mascavo). */
-const TARGET_JOB_PATTERN = /^[a-z0-9-]+(:[a-z0-9]+)?$/
+/** "job", "job:marca" (ex.: anymarket-orders, vtex-orders:mascavo) ou "*" (todos, de forma explícita). */
+const TARGET_JOB_PATTERN = /^(\*|[a-z0-9-]+(:[a-z0-9]+)?)$/
+
+/** Prefixos das variáveis de trava: nome desconhecido com esse prefixo é erro de digitação (ex.: ANYMARKET_ACCOUNT). */
+const GUARDED_PREFIXES = ['TARGET_', 'ANYMARKET_'] as const
 
 /**
  * Lista separada por vírgula, opcional. Sem a variável: undefined (sem restrição). Presente e vazia: erro, porque um
@@ -136,6 +139,32 @@ const checkTargetMode = (env: iTargetFields, ctx: z.RefinementCtx): void => {
 	}
 }
 
+interface iReleaseFields {
+	TARGET_MODE: (typeof TARGET_MODES)[number]
+	TARGET_DATABASES: readonly string[]
+	TARGET_JOBS?: readonly string[] | undefined
+	ANYMARKET_ACCOUNTS?: readonly string[] | undefined
+}
+
+/**
+ * Em produção, com o banco da Amobeleza liberado, TARGET_JOBS e ANYMARKET_ACCOUNTS são obrigatórios: sem eles o padrão
+ * seria "todos", e uma linha esquecida ou com o nome errado ligaria VTEX, GA4 e todas as contas do AnyMarket da
+ * Amobeleza sem aviso. Para liberar tudo, "*" de forma explícita.
+ */
+const checkAmobelezaReleased = (env: iReleaseFields, ctx: z.RefinementCtx): void => {
+	if (env.TARGET_MODE !== 'production' || !env.TARGET_DATABASES.includes('amobeleza_etl')) return
+
+	for (const key of ['TARGET_JOBS', 'ANYMARKET_ACCOUNTS'] as const) {
+		if (env[key] !== undefined) continue
+
+		ctx.addIssue({
+			code: 'custom',
+			path: [key],
+			message: `${key} é obrigatório em produção com amobeleza_etl em TARGET_DATABASES ("*" para liberar tudo).`
+		})
+	}
+}
+
 const envSchema = z
 	.object({
 		NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -235,6 +264,7 @@ const envSchema = z
 	})
 	.superRefine((env, ctx) => {
 		checkTargetMode(env, ctx)
+		checkAmobelezaReleased(env, ctx)
 
 		const groups: Record<string, (keyof typeof env)[]> = {
 			'banco de destino': ['TARGET_DB_USER', 'TARGET_DB_PASSWORD'],
@@ -274,6 +304,17 @@ let cachedEnv: tEnv | null = null
 
 /** Valida na primeira chamada e lança com uma linha por variável inválida. */
 const parseEnv = (source: NodeJS.ProcessEnv): tEnv => {
+	const known = new Set(Object.keys(envSchema.shape))
+	const unknown = Object.keys(source).filter(
+		key => GUARDED_PREFIXES.some(prefix => key.startsWith(prefix)) && !known.has(key)
+	)
+
+	if (unknown.length > 0) {
+		const lines = unknown.map(key => `  - ${key}: variável desconhecida (erro de digitação?)`).join('\n')
+
+		throw new Error(`Configuração de ambiente inválida:\n${lines}`)
+	}
+
 	const parsed = envSchema.safeParse(source)
 
 	if (!parsed.success) {

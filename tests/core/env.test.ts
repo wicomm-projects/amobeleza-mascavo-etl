@@ -55,8 +55,10 @@ describe('env: travas de configuração', () => {
 const CLIENT_HOST = '203.0.113.20'
 
 describe('env: modo do destino (TARGET_MODE)', () => {
+	// Como a VPS em 28/11/2026: só a Mascavo liberada (com os dois bancos, TARGET_JOBS e ANYMARKET_ACCOUNTS são exigidos).
 	const production = {
 		TARGET_MODE: 'production',
+		TARGET_DATABASES: 'mascavo_etl',
 		TARGET_DB_HOST: CLIENT_HOST,
 		TARGET_DB_PORT: String(PRODUCTION_TARGET.port),
 		TARGET_DB_USER: PRODUCTION_TARGET.user,
@@ -161,6 +163,67 @@ describe('env: TARGET_JOBS e ANYMARKET_ACCOUNTS', () => {
 		'%s presente e vazio é erro (vazio não pode virar "todos")',
 		name => {
 			expect(() => parseEnv({ [name]: '  ' })).toThrow(new RegExp(name))
+		}
+	)
+})
+
+describe('env: banco da Amobeleza liberado em produção exige TARGET_JOBS e ANYMARKET_ACCOUNTS', () => {
+	const production = {
+		TARGET_MODE: 'production',
+		TARGET_DB_HOST: '203.0.113.20',
+		TARGET_DB_PORT: String(PRODUCTION_TARGET.port),
+		TARGET_DB_USER: PRODUCTION_TARGET.user,
+		TARGET_DB_PASSWORD: 'x'
+	}
+	const BOTH = 'mascavo_etl,amobeleza_etl'
+	const MASCAVO_JOBS = 'vtex-orders:mascavo,vtex-catalog:mascavo,ga4:mascavo,anymarket-orders'
+
+	it('só a Mascavo liberada: as variáveis novas continuam opcionais', () => {
+		expect(() => parseEnv({ ...production, TARGET_DATABASES: 'mascavo_etl' })).not.toThrow()
+	})
+
+	it('Amobeleza liberada sem TARGET_JOBS: erro (não vira "todos" calado)', () => {
+		expect(() => parseEnv({ ...production, TARGET_DATABASES: BOTH, ANYMARKET_ACCOUNTS: 'MASCAVO' })).toThrow(
+			/TARGET_JOBS/
+		)
+	})
+
+	it('Amobeleza liberada sem ANYMARKET_ACCOUNTS: erro', () => {
+		expect(() => parseEnv({ ...production, TARGET_DATABASES: BOTH, TARGET_JOBS: MASCAVO_JOBS })).toThrow(
+			/ANYMARKET_ACCOUNTS/
+		)
+	})
+
+	it('sem TARGET_DATABASES (padrão: os dois bancos) em produção também exige as duas', () => {
+		expect(() => parseEnv(production)).toThrow(/TARGET_JOBS/)
+	})
+
+	it('com as três variáveis: aceita', () => {
+		expect(() =>
+			parseEnv({
+				...production,
+				TARGET_DATABASES: BOTH,
+				TARGET_JOBS: MASCAVO_JOBS,
+				ANYMARKET_ACCOUNTS: 'MASCAVO'
+			})
+		).not.toThrow()
+	})
+
+	it('"*" libera tudo de forma explícita (para quando a Amobeleza for liberada)', () => {
+		const env = parseEnv({ ...production, TARGET_DATABASES: BOTH, TARGET_JOBS: '*', ANYMARKET_ACCOUNTS: '*' })
+
+		expect(env.TARGET_JOBS).toEqual(['*'])
+		expect(env.ANYMARKET_ACCOUNTS).toEqual(['*'])
+	})
+
+	it('no modo local não exige nada', () => {
+		expect(() => parseEnv({ TARGET_DATABASES: BOTH })).not.toThrow()
+	})
+
+	it.each(['ANYMARKET_ACCOUNT', 'TARGET_JOB', 'TARGET_DATABASE'])(
+		'recusa variável com nome parecido e desconhecido: %s',
+		name => {
+			expect(() => parseEnv({ [name]: 'MASCAVO' })).toThrow(new RegExp(name))
 		}
 	)
 })

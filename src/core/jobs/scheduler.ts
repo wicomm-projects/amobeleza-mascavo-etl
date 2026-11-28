@@ -2,7 +2,7 @@ import cron, { type ScheduledTask } from 'node-cron'
 
 import { getLogger, type tBrand } from '../../config/index.js'
 
-import { currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
+import { assertTargetJobsKnown, currentAllowance, type iAllowance, runBlockReason } from './allowed.js'
 import { allJobs, brandsOf } from './registry.js'
 import { runJob } from './runner.js'
 import type { iJob } from './types.js'
@@ -49,6 +49,9 @@ const plannedRuns = (
 
 const startScheduler = (): number => {
 	const logger = getLogger()
+	// Item de TARGET_JOBS que não casa com nenhum job tiraria um job do agendador calado: falha na subida.
+	assertTargetJobsKnown(currentAllowance().jobs)
+
 	const { planned, skipped } = plannedRuns()
 
 	for (const { job, brand, reason } of skipped) {
