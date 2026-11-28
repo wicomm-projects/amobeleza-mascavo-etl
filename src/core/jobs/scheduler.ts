@@ -49,6 +49,7 @@ const plannedRuns = (
 
 const startScheduler = (): number => {
 	const logger = getLogger()
+
 	// Item de TARGET_JOBS que não casa com nenhum job tiraria um job do agendador calado: falha na subida.
 	assertTargetJobsKnown(currentAllowance().jobs)
 

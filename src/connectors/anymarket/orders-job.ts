@@ -66,14 +66,14 @@ interface iParsedOrder {
 /** Item de ANYMARKET_ACCOUNTS que libera todas as contas, de forma explícita. */
 const ALL_ACCOUNTS = '*'
 
-/**
- * Conta do pedido liberada por ANYMARKET_ACCOUNTS. Compara como o MySQL compara `account_name` (o Power BI da Mascavo
- * filtra `account_name = 'MASCAVO'`, que também casa "Mascavo" e "MASCAVO "). Sem filtro, todas. O job grava por id de pedido (upsert e replaceByKeys), então as linhas
- * das contas filtradas ficam como estão.
- */
 /** Como a collation utf8mb4_unicode_ci da coluna account_name compara: sem diferença de maiúscula nem de espaço no fim. */
 const accountKey = (name: string): string => name.trimEnd().toLowerCase()
 
+/**
+ * Conta do pedido liberada por ANYMARKET_ACCOUNTS. Compara como o MySQL compara `account_name` (o Power BI da Mascavo
+ * filtra `account_name = 'MASCAVO'`, que também casa "Mascavo" e "MASCAVO "). Sem filtro ou com "*", todas. O job grava
+ * por id de pedido (upsert e replaceByKeys), então as linhas das contas filtradas ficam como estão.
+ */
 const isAccountAllowed = (accountName: string, accounts: readonly string[] | undefined): boolean =>
 	accounts === undefined ||
 	accounts.includes(ALL_ACCOUNTS) ||

@@ -74,6 +74,17 @@ const commandSources = async () => {
 		`${'Contas do AnyMarket'.padEnd(34)} ${getEnv().ANYMARKET_ACCOUNTS?.join(', ') ?? 'todas'} (ANYMARKET_ACCOUNTS)`
 	)
 
+	// A mesma conferência que o agendador faz na subida: dá para validar o .env antes do restart do serviço.
+	const { assertTargetJobsKnown } = await import('./core/jobs/allowed.js')
+
+	try {
+		assertTargetJobsKnown(getEnv().TARGET_JOBS)
+	} catch (err) {
+		out(`ERRO: ${err instanceof Error ? err.message : String(err)}`)
+
+		return 1
+	}
+
 	return 0
 }
 
