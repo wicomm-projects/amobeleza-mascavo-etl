@@ -100,19 +100,77 @@ que troca as travas sem tirá-las:
 
 ## Passo 4 — Backup (véspera, pela VPS, só leitura)
 
-Com o `wicomm_leitura`, que só lê, um `mysqldump` das 42 tabelas do mapa (as mesmas do script do passo 2):
+Com o `wicomm_leitura`, que só lê, um `mysqldump` das 42 tabelas do mapa (as mesmas do script do passo 2). Feito em
+27/11/2026 às 14:10 com os comandos abaixo, que são os que funcionaram.
 
-```bash
-mysqldump --single-transaction --no-tablespaces --skip-lock-tables -h <host do banco> -u wicomm_leitura -p \
-  mascavo_etl <tabelas de mascavo_etl> > /home/etl/backup/mascavo_etl-AAAAMMDD.sql
-mysqldump --single-transaction --no-tablespaces --skip-lock-tables -h <host do banco> -u wicomm_leitura -p \
-  amobeleza_etl <tabelas de amobeleza_etl> > /home/etl/backup/amobeleza_etl-AAAAMMDD.sql
-chmod 600 /home/etl/backup/*.sql
-```
+**Tudo na VPS, como `etl`, numa mesma janela do `tmux`** (as variáveis só valem na janela em que foram criadas). Fora
+do horário de uso: o dump lê as tabelas inteiras do banco da cliente.
 
-- O backup tem dado pessoal: fica só na VPS, com `chmod 600`, e é apagado depois de 30 dias.
-- Para restaurar, quem roda é o administrador, com `mysql <banco> < arquivo.sql`. O arquivo recria as tabelas e os
-  dados de antes.
+1. **Pasta e variáveis.** A VPS não tem `mysqldump` instalado; o do container do MySQL local é usado só como
+   programa, apontando para o banco da cliente (sai pelo IP da VPS). Host, porta e usuário saem do `.env`. A **senha
+   sai pelo `dotenv`**, o mesmo leitor do ETL: com `grep | cut`, aspas e caracteres especiais do `.env` vêm junto e o
+   MySQL responde `Access denied`. As listas de tabelas saem do script do `wicomm_etl`, **sem crase** no comando (a
+   crase se perde ao copiar de mensagem).
+
+    ```bash
+    cd ~/amobeleza-mascavo-etl
+    mkdir -p ~/backup && chmod 700 ~/backup
+    REF_DB_HOST=$(grep '^REF_DB_HOST=' .env | cut -d= -f2- | tr -d '\r')
+    REF_DB_PORT=$(grep '^REF_DB_PORT=' .env | cut -d= -f2- | tr -d '\r')
+    REF_DB_USER=$(grep '^REF_DB_USER=' .env | cut -d= -f2- | tr -d '\r')
+    REF_DB_PASSWORD="$(node -e "require('dotenv').config(); process.stdout.write(process.env.REF_DB_PASSWORD || '')")"
+    TABELAS_M=$(grep -oE 'mascavo_etl.{3}[a-z_0-9]+' ops/mysql/usuario-wicomm-etl.sql | sed -E 's/.*[^a-z_0-9]//' | tr '\n' ' ')
+    TABELAS_A=$(grep -oE 'amobeleza_etl.{3}[a-z_0-9]+' ops/mysql/usuario-wicomm-etl.sql | sed -E 's/.*[^a-z_0-9]//' | tr '\n' ' ')
+    echo "$TABELAS_M" | wc -w; echo "$TABELAS_A" | wc -w     # 19 e 23
+    echo "[$REF_DB_USER] ${#REF_DB_PASSWORD} caracteres"       # sem mostrar a senha
+    ```
+
+2. **Dump.** `--single-transaction` tira uma foto consistente sem travar as tabelas; `--ssl-mode=REQUIRED` porque o
+   dump tem dado pessoal; `--skip-triggers` e `--set-gtid-purged=OFF` deixam de fora o que o `wicomm_leitura` não lê e
+   o que atrapalharia a restauração. A senha vai por variável de ambiente, não pela linha de comando.
+
+    ```bash
+    D=$(date +%Y%m%d-%H%M)
+    for BANCO in mascavo_etl amobeleza_etl; do
+      [ "$BANCO" = mascavo_etl ] && T="$TABELAS_M" || T="$TABELAS_A"
+      MYSQL_PWD="$REF_DB_PASSWORD" docker exec -i -e MYSQL_PWD amo-etl-mysql mysqldump \
+        --ssl-mode=REQUIRED --single-transaction --no-tablespaces --skip-lock-tables --skip-triggers --set-gtid-purged=OFF \
+        -h "$REF_DB_HOST" -P "$REF_DB_PORT" -u "$REF_DB_USER" "$BANCO" $T > ~/backup/$BANCO-$D.sql
+    done
+    chmod 600 ~/backup/*.sql
+    ```
+
+3. **Conferência.** Cada arquivo tem de ter 19 e 23 `CREATE TABLE` e terminar em `-- Dump completed on ...`. A
+   primeira linha `-- Host:` mostra que o dump veio do banco da cliente, não do local.
+
+    ```bash
+    ls -lh ~/backup/
+    for f in ~/backup/*-$D.sql; do echo "$f: $(grep -c '^CREATE TABLE' "$f") tabelas | $(tail -1 "$f")"; done
+    head -5 ~/backup/amobeleza_etl-$D.sql
+    ```
+
+    Em 27/11/2026: Mascavo 1,4 GB (19 tabelas) e Amobeleza 14 GB (23 tabelas), os dois completos.
+
+4. **Comprimir e copiar para o computador do dev** (opcional, mesma foto em dois lugares). O `gzip -k` mantém o
+   original; o `sha256sum` e o `Get-FileHash` provam que a cópia veio inteira.
+
+    ```bash
+    gzip -k ~/backup/*-$D.sql && sha256sum ~/backup/*.gz     # VPS, como etl
+    ```
+
+    ```powershell
+    New-Item -ItemType Directory -Force "$env:USERPROFILE\Backups-amobeleza-mascavo"
+    scp "etl@IP_DA_VPS:~/backup/*-AAAAMMDD-HHMM.sql.gz" "$env:USERPROFILE\Backups-amobeleza-mascavo\"
+    Get-FileHash "$env:USERPROFILE\Backups-amobeleza-mascavo\*.gz" -Algorithm SHA256 | Format-List Path, Hash
+    ```
+
+    Em 27/11/2026: 187 MB e 2,4 GB comprimidos, com os hashes iguais nos dois lados. Depois de conferir, os `.sql`
+    grandes podem sair da VPS (`rm ~/backup/*-$D.sql`).
+
+- O backup tem dado pessoal: fica com `chmod 600` na VPS e, no computador do dev, fora do projeto e de pasta
+  sincronizada (de preferência em disco com BitLocker). Os dois são apagados depois de 30 dias.
+- Para restaurar, quem roda é o administrador: `mysql <banco> < arquivo.sql` (ou `gunzip -c arquivo.sql.gz | mysql
+<banco>`). O arquivo recria as tabelas e os dados de antes.
 
 ## Passo 5 — Última paridade (véspera, só leitura)
 
